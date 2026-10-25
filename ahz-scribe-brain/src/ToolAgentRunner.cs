@@ -46,6 +46,7 @@ namespace AhzScribe.Brain
                 new BrainTurnMessage { Role = "user", Content = memory + "\n用户：" + userText }
             };
             string lastText = "";
+            string lastAuditId = "";
             for (int step = 0; step < _maxSteps; step++)
             {
                 ct.ThrowIfCancellationRequested();
@@ -87,7 +88,8 @@ namespace AhzScribe.Brain
                         Tool = call.Tool,
                         Tier = call.Tier,
                         Approved = call.Approved,
-                        Args = call.Args ?? new Dictionary<string, object>()
+                        Args = call.Args ?? new Dictionary<string, object>(),
+                        LinkedAuditId = call.Tool == "rollback_self" ? lastAuditId : null
                     };
                     string result;
                     if (!call.Approved && call.Tier == PermissionTier.Full && Approval != null)
@@ -107,6 +109,7 @@ namespace AhzScribe.Brain
                     {
                         ActionResult r = await _body.ExecuteAsync(req, ct).ConfigureAwait(false);
                         result = r == null ? "null result" : (r.Ok ? (r.Output ?? "") : ("ERROR: " + (r.Error ?? "failed")));
+                        if (r != null && !string.IsNullOrEmpty(r.AuditId)) lastAuditId = r.AuditId;
                     }
                     catch (Exception ex) { result = "ERROR: " + ex.Message; }
                     if (Trace != null) Trace("← " + (result.Length > 400 ? result.Substring(0, 400) + "..." : result));

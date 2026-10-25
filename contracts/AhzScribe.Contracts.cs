@@ -23,6 +23,7 @@ namespace AhzScribe.Contracts
         public string Cwd { get; set; }
         // Set by face after the user approves a dangerous action; body never approves itself.
         public bool Approved { get; set; }
+        public string LinkedAuditId { get; set; }
 
         public ActionRequest()
         {
@@ -113,6 +114,7 @@ namespace AhzScribe.Contracts
         public string Tool { get; set; }
         public PermissionTier Tier { get; set; } = PermissionTier.ReadOnly;
         public bool Approved { get; set; }
+        public string LinkedAuditId { get; set; }
         public Dictionary<string, object> Args { get; set; }
     }
 

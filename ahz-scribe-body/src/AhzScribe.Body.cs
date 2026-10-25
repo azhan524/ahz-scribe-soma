@@ -548,7 +548,8 @@ namespace AhzScribe.Body
                 ["result"] = result,
                 ["tier"] = tier,
                 ["reason"] = reason,
-                ["args"] = args
+                ["args"] = args,
+                ["linked_audit_id"] = args != null && args.ContainsKey("linked_audit_id") ? Convert.ToString(args["linked_audit_id"]) : ""
             };
             lock (_lock)
             {
