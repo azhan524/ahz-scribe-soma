@@ -1,6 +1,7 @@
 # ahz-scribe
 
 [![repo-hygiene](https://github.com/azhan524/ahz-scribe-soma/actions/workflows/repo-hygiene.yml/badge.svg)](https://github.com/azhan524/ahz-scribe-soma/actions/workflows/repo-hygiene.yml)
+[![build](https://github.com/azhan524/ahz-scribe-soma/actions/workflows/build.yml/badge.svg)](https://github.com/azhan524/ahz-scribe-soma/actions/workflows/build.yml)
 
 > **Pre-release**：brain / body / face 已拆成可构建模块，但最终 UI 与部分工具仍在迁移中。
 >

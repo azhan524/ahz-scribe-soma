@@ -1,0 +1,31 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  modules:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build contracts
+        run: dotnet build contracts/AhzScribe.Contracts.csproj -c Release
+
+      - name: Build body
+        run: dotnet build ahz-scribe-body/src/AhzScribe.Body.csproj -c Release
+
+      - name: Build brain
+        run: dotnet build ahz-scribe-brain/src/AhzScribe.Brain.csproj -c Release
+
+      - name: Build brain host
+        run: dotnet build ahz-scribe-brain-host/src/AhzScribe.BrainHost.csproj -c Release
+
+      - name: Build face
+        run: dotnet build ahz-scribe-face/src/AhzScribe.Face.csproj -c Release
