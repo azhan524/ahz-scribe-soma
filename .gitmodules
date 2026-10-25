@@ -1,0 +1,11 @@
+[submodule "ahz-scribe-brain"]
+	path = ahz-scribe-brain
+	url = https://github.com/azhan524/ahz-scribe-brain.git
+
+[submodule "ahz-scribe-body"]
+	path = ahz-scribe-body
+	url = https://github.com/azhan524/ahz-scribe-body.git
+
+[submodule "ahz-scribe-face"]
+	path = ahz-scribe-face
+	url = https://github.com/azhan524/ahz-scribe-face.git

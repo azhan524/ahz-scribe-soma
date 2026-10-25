@@ -1,0 +1,39 @@
+# Build outputs
+_build/
+bin/
+obj/
+*.exe
+*.dll
+*.pdb
+*.new
+*.log
+
+# Runtime data and secrets
+_body-data/
+_face-data/
+_brain-data/
+_sandbox*/
+*.jsonl
+config.json
+sessions.json
+state/
+memory/
+logs/
+audit/
+*.key
+.env
+.env.*
+*.secret
+
+# Local tool caches
+.dotnet/
+.snapshots/
+.vs/
+.idea/
+*.user
+*.suo
+
+# OS noise
+Thumbs.db
+Desktop.ini
+.DS_Store

@@ -1,0 +1,21 @@
+# NOTICE
+
+Ahz Scribe is licensed under the GNU Affero General Public License v3.0.
+
+Third-party components retain their own licenses and copyrights. This file is a summary, not legal advice; always consult the upstream package metadata.
+
+## Runtime / build dependencies
+
+- **.NET Framework 4.8** — Microsoft; subject to its redistributable license.
+- **CefSharp** — BSD-style license; Chromium/CEF components carry their own notices.
+- **Scintilla.NET** — MIT-style license; Scintilla and Lexilla have their own notices.
+- **NapCat / QQNT** — external projects/services; not bundled; subject to their own licenses and terms.
+- **DeepSeek / OpenAI-compatible APIs / Ollama** — external services; subject to their own terms.
+
+## Assets
+
+UI icons and fonts are either system-provided or generated for this project. If a third-party asset is added, record its source and license here before release.
+
+## Security-sensitive components
+
+`bin/AuditBroker.exe` is built from `src/AhzScribe.cs` with `AUDIT_BROKER` and runs as a Windows service. It is part of this project and covered by the project license.

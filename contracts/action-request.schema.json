@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/azhan524/ahz-scribe/contracts/action-request.schema.json",
+  "title": "ahz-scribe-action-request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["request-id", "tool", "args", "tier", "session-id"],
+  "properties": {
+    "request-id": { "type": "string", "pattern": "^[a-z0-9-]{8,64}$" },
+    "tool": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$" },
+    "args": { "type": "object" },
+    "reason": { "type": "string", "maxLength": 4000 },
+    "tier": { "enum": ["read-only", "workspace-write", "full"] },
+    "session-id": { "type": "string", "maxLength": 128 },
+    "cwd": { "type": "string" },
+    "approved": { "type": "boolean" }
+  }
+}

@@ -1,0 +1,776 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Net.Http;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Windows.Forms;
+using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
+using System.IO;
+using System.IO.Pipes;
+using System.Linq;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using AhzScribe.Contracts;
+
+namespace AhzScribe.Body
+{
+    internal static class Program
+    {
+        public static int Main(string[] args)
+        {
+            if (args != null && args.Length > 0 && args[0] == "--self-test")
+                return SelfTest.Run();
+            if (args != null && args.Length > 0 && args[0] == "--ipc-test")
+                return IpcSelfTest.Run();
+
+            using (var cts = new CancellationTokenSource())
+            {
+                Console.CancelKeyPress += delegate(object s, ConsoleCancelEventArgs e)
+                {
+                    e.Cancel = true;
+                    cts.Cancel();
+                };
+                Console.WriteLine("ahz-scribe-body: pipe=" + BodyServer.PipeName);
+                BodyServer.RunAsync(cts.Token).GetAwaiter().GetResult();
+            }
+            return 0;
+        }
+    }
+
+    internal static class Json
+    {
+        public static readonly JsonSerializerOptions Options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = false,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            Converters = { new JsonStringEnumConverter() }
+        };
+
+        public static string Dump(object o) { return JsonSerializer.Serialize(o, o.GetType(), Options); }
+        public static T Parse<T>(string s) { return JsonSerializer.Deserialize<T>(s, Options); }
+    }
+
+    internal sealed class BodyEnvelope
+    {
+        public string Action { get; set; }
+        public ActionRequest Request { get; set; }
+    }
+
+    internal sealed class BodyReply
+    {
+        public bool Ok { get; set; }
+        public ActionResult Result { get; set; }
+        public string Error { get; set; }
+    }
+
+    internal sealed class BodyExecutor : IActionExecutor
+    {
+        readonly string _root;
+        readonly IAuditSink _audit;
+
+        public BodyExecutor(string root, IAuditSink audit)
+        {
+            _root = Path.GetFullPath(root);
+            _audit = audit;
+        }
+
+        public async Task<ActionResult> ExecuteAsync(ActionRequest request, CancellationToken ct)
+        {
+            var started = DateTime.UtcNow;
+            var result = new ActionResult { RequestId = request == null ? "" : request.RequestId };
+            try
+            {
+                if (request == null) throw new ArgumentException("request is required");
+                if (string.IsNullOrEmpty(request.Tool)) throw new ArgumentException("tool is required");
+                if (request.Args == null) request.Args = new Dictionary<string, object>();
+
+                string auditId = await _audit.AppendAsync(
+                    "body_action", request.Tool, "allowed", "",
+                    request.Tier.ToString(), request.Args, request.Reason, ct).ConfigureAwait(false);
+                result.AuditId = auditId;
+
+                switch (request.Tool)
+                {
+                    case "read_file": result.Output = ReadFile(request, ct); break;
+                    case "list_dir": result.Output = ListDir(request, ct); break;
+                    case "write_file": result.Output = WriteFile(request, ct); break;
+                    case "edit_file": result.Output = EditFile(request); break;
+                    case "rollback_self": result.Output = RollbackSelf(request); break;
+                    case "file_info": result.Output = FileInfo(request, ct); break;
+                    case "make_dir": result.Output = MakeDir(request, ct); break;
+                    case "delete_file": result.Output = DeleteFile(request, ct); break;
+                    case "copy_file": result.Output = CopyFile(request, ct); break;
+                    case "move_file": result.Output = MoveFile(request, ct); break;
+                    case "run_shell": result.Output = RunShell(request, ct); break;
+                    case "start_program": result.Output = StartProgram(request, ct); break;
+                    case "search_text": result.Output = SearchText(request, ct); break;
+                    case "tail_file": result.Output = TailFile(request); break;
+                    case "glob": result.Output = Glob(request); break;
+                    case "network_fetch": result.Output = NetworkFetch(request, ct); break;
+                    case "desktop_list_windows": result.Output = DesktopWindows(); break;
+                    case "desktop_active_window": result.Output = DesktopActiveWindow(); break;
+                    case "desktop_click": result.Output = DesktopClick(request); break;
+                    case "desktop_type": result.Output = DesktopType(request); break;
+                    case "desktop_screenshot": result.Output = DesktopScreenshot(); break;
+                    case "desktop_focus_window": result.Output = DesktopFocus(request); break;
+                    case "desktop_click_window": result.Output = DesktopClickWindow(request); break;
+                    default: throw new InvalidOperationException("tool not implemented by body v0: " + request.Tool);
+                }
+                result.Ok = true;
+            }
+            catch (Exception ex)
+            {
+                result.Ok = false;
+                result.Error = ex.Message;
+            }
+            result.DurationMs = (long)(DateTime.UtcNow - started).TotalMilliseconds;
+            return result;
+        }
+
+        string FullPath(ActionRequest r, string key, bool mustExist)
+        {
+            string rel = r.Args != null && r.Args.ContainsKey(key) ? Convert.ToString(r.Args[key]) : "";
+            if (string.IsNullOrEmpty(rel)) throw new ArgumentException(key + " is required");
+            string p = Path.GetFullPath(Path.IsPathRooted(rel) ? rel : Path.Combine(_root, rel));
+            if (!IsUnder(_root, p)) throw new UnauthorizedAccessException("path escapes workspace: " + p);
+            if (mustExist && !File.Exists(p) && !Directory.Exists(p)) throw new FileNotFoundException("not found: " + p);
+            return p;
+        }
+
+        static bool IsUnder(string root, string path)
+        {
+            string r = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            string p = Path.GetFullPath(path);
+            return p.Equals(root, StringComparison.OrdinalIgnoreCase) ||
+                   p.StartsWith(r, StringComparison.OrdinalIgnoreCase);
+        }
+
+        string ReadFile(ActionRequest r, CancellationToken ct)
+        {
+            string p = FullPath(r, "path", true);
+            if (Directory.Exists(p)) throw new IOException("is a directory: " + p);
+            return File.ReadAllText(p);
+        }
+
+        string ListDir(ActionRequest r, CancellationToken ct)
+        {
+            string p = FullPath(r, "path", true);
+            var lines = new List<string>();
+            foreach (string d in Directory.EnumerateDirectories(p).OrderBy(x => x))
+                lines.Add("[dir] " + Path.GetFileName(d));
+            foreach (string f in Directory.EnumerateFiles(p).OrderBy(x => x))
+                lines.Add("[file] " + Path.GetFileName(f) + " (" + new FileInfo(f).Length + ")");
+            return string.Join("\n", lines);
+        }
+
+        [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+        [DllImport("user32.dll")] static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
+        const uint MOUSEEVENTF_LEFTDOWN = 0x0002, MOUSEEVENTF_LEFTUP = 0x0004;
+
+        string DesktopClick(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("desktop_click requires Full tier and Approved=true");
+            int x = Convert.ToInt32(r.Args.ContainsKey("x") ? r.Args["x"] : 0);
+            int y = Convert.ToInt32(r.Args.ContainsKey("y") ? r.Args["y"] : 0);
+            SetCursorPos(x, y);
+            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
+            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+            return "clicked " + x + "," + y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct KEYBDINPUT { public ushort wVk; public ushort wScan; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
+        [StructLayout(LayoutKind.Explicit)]
+        struct INPUT { [FieldOffset(0)] public uint type; [FieldOffset(8)] public KEYBDINPUT ki; }
+        [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint n, INPUT[] inputs, int cbSize);
+        const uint INPUT_KEYBOARD = 1, KEYEVENTF_UNICODE = 0x0004, KEYEVENTF_KEYUP = 0x0002;
+
+        string DesktopType(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("desktop_type requires Full tier and Approved=true");
+            string text = r.Args.ContainsKey("text") ? Convert.ToString(r.Args["text"]) : "";
+            foreach (char ch in text)
+            {
+                INPUT down = new INPUT { type = INPUT_KEYBOARD, ki = new KEYBDINPUT { wScan = ch, dwFlags = KEYEVENTF_UNICODE } };
+                INPUT up = new INPUT { type = INPUT_KEYBOARD, ki = new KEYBDINPUT { wScan = ch, dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP } };
+                SendInput(1, new[] { down }, Marshal.SizeOf(typeof(INPUT)));
+                SendInput(1, new[] { up }, Marshal.SizeOf(typeof(INPUT)));
+            }
+            return "typed " + text.Length + " chars";
+        }
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+        delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        static extern bool IsWindowVisible(IntPtr hWnd);
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        static extern IntPtr GetForegroundWindow();
+
+        string DesktopScreenshot()
+        {
+            Rectangle b = Screen.PrimaryScreen.Bounds;
+            string dir = Path.Combine(_root, "_screenshots");
+            Directory.CreateDirectory(dir);
+            string name = "screen_" + DateTime.Now.ToString("yyyyMMdd_HHmmss_fff") + ".png";
+            string path = Path.Combine(dir, name);
+            using (var bmp = new Bitmap(b.Width, b.Height, PixelFormat.Format32bppArgb))
+            {
+                using (Graphics g = Graphics.FromImage(bmp))
+                    g.CopyFromScreen(b.Left, b.Top, 0, 0, b.Size, CopyPixelOperation.SourceCopy);
+                bmp.Save(path, ImageFormat.Png);
+            }
+            return "_screenshots/" + name;
+        }
+        [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hWnd);
+        [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        [StructLayout(LayoutKind.Sequential)]
+        struct RECT { public int Left, Top, Right, Bottom; }
+        [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
+        IntPtr FindWindowByTitle(string title)
+        {
+            IntPtr found = IntPtr.Zero;
+            string want = (title ?? "").Trim();
+            EnumWindows(delegate(IntPtr h, IntPtr l)
+            {
+                if (!IsWindowVisible(h)) return true;
+                var sb = new StringBuilder(512);
+                GetWindowText(h, sb, sb.Capacity);
+                string t = sb.ToString();
+                if (t.IndexOf(want, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    found = h;
+                    return false;
+                }
+                return true;
+            }, IntPtr.Zero);
+            return found;
+        }
+
+        string DesktopFocus(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("desktop_focus_window requires Full tier and Approved=true");
+            string title = r.Args.ContainsKey("title") ? Convert.ToString(r.Args["title"]) : "";
+            IntPtr h = FindWindowByTitle(title);
+            if (h == IntPtr.Zero) return "window not found: " + title;
+            ShowWindow(h, 9);
+            SetForegroundWindow(h);
+            return "focused: " + title;
+        }
+
+        string DesktopClickWindow(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("desktop_click_window requires Full tier and Approved=true");
+            string title = r.Args.ContainsKey("title") ? Convert.ToString(r.Args["title"]) : "";
+            IntPtr h = FindWindowByTitle(title);
+            if (h == IntPtr.Zero) return "window not found: " + title;
+            ShowWindow(h, 9);
+            SetForegroundWindow(h);
+            RECT rect;
+            if (!GetWindowRect(h, out rect)) return "GetWindowRect failed";
+            int x = Convert.ToInt32(r.Args.ContainsKey("x") ? r.Args["x"] : 0);
+            int y = Convert.ToInt32(r.Args.ContainsKey("y") ? r.Args["y"] : 0);
+            SetCursorPos(rect.Left + x, rect.Top + y);
+            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
+            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+            return "clicked window " + title + " at " + x + "," + y;
+        }
+        string DesktopWindows()
+        {
+            var lines = new List<string>();
+            EnumWindows(delegate(IntPtr h, IntPtr l)
+            {
+                if (!IsWindowVisible(h)) return true;
+                var sb = new StringBuilder(512);
+                GetWindowText(h, sb, sb.Capacity);
+                string title = sb.ToString().Trim();
+                if (title.Length == 0) return true;
+                uint pid; GetWindowThreadProcessId(h, out pid);
+                lines.Add(pid + " | " + title);
+                return true;
+            }, IntPtr.Zero);
+            return string.Join("\n", lines.Take(100).ToArray());
+        }
+
+        string DesktopActiveWindow()
+        {
+            IntPtr h = GetForegroundWindow();
+            if (h == IntPtr.Zero) return "";
+            var sb = new StringBuilder(512);
+            GetWindowText(h, sb, sb.Capacity);
+            uint pid; GetWindowThreadProcessId(h, out pid);
+            return pid + " | " + sb.ToString().Trim();
+        }
+        string SearchText(ActionRequest r, CancellationToken ct)
+        {
+            string pattern = r.Args.ContainsKey("pattern") ? Convert.ToString(r.Args["pattern"]) : "";
+            string path = r.Args.ContainsKey("path") ? Convert.ToString(r.Args["path"]) : ".";
+            if (string.IsNullOrEmpty(pattern)) throw new ArgumentException("pattern is required");
+            string dir = FullPath(r, "path", true);
+            var re = new Regex(pattern, RegexOptions.IgnoreCase);
+            var sb = new StringBuilder();
+            int n = 0;
+            foreach (string f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+            {
+                ct.ThrowIfCancellationRequested();
+                if (n >= 200) break;
+                try
+                {
+                    int line = 0;
+                    foreach (string s in File.ReadLines(f))
+                    {
+                        line++;
+                        if (re.IsMatch(s))
+                        {
+                            sb.AppendLine(Path.GetRelativePath(_root, f) + ":" + line + ": " + s.Trim());
+                            if (++n >= 200) break;
+                        }
+                    }
+                }
+                catch { }
+            }
+            return sb.ToString().TrimEnd();
+        }
+
+        string TailFile(ActionRequest r)
+        {
+            string path = FullPath(r, "path", true);
+            int n = r.Args.ContainsKey("lines") ? Convert.ToInt32(r.Args["lines"]) : 50;
+            if (n < 1) n = 1; if (n > 1000) n = 1000;
+            string[] lines = File.ReadAllLines(path, Encoding.UTF8);
+            int start = Math.Max(0, lines.Length - n);
+            return string.Join("\n", lines.Skip(start).ToArray());
+        }
+
+        string Glob(ActionRequest r)
+        {
+            string pattern = r.Args.ContainsKey("pattern") ? Convert.ToString(r.Args["pattern"]) : "*";
+            string path = r.Args.ContainsKey("path") ? Convert.ToString(r.Args["path"]) : ".";
+            string dir = FullPath(r, "path", true);
+            var list = Directory.GetFiles(dir, pattern, SearchOption.AllDirectories)
+                .Select(x => Path.GetRelativePath(_root, x)).OrderBy(x => x).Take(500);
+            return string.Join("\n", list.ToArray());
+        }
+
+        static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        string NetworkFetch(ActionRequest r, CancellationToken ct)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("network_fetch requires Full tier and Approved=true");
+            string url = r.Args.ContainsKey("url") ? Convert.ToString(r.Args["url"]) : "";
+            Uri uri;
+            if (!Uri.TryCreate(url, UriKind.Absolute, out uri) || (uri.Scheme != "http" && uri.Scheme != "https"))
+                throw new ArgumentException("url must be http/https");
+            string text = Http.GetStringAsync(uri).GetAwaiter().GetResult();
+            if (text.Length > 20000) text = text.Substring(0, 20000) + "\n[truncated]";
+            return text;
+        }
+        string RunShell(ActionRequest r, CancellationToken ct)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("run_shell requires Full tier and Approved=true");
+            string command = r.Args.ContainsKey("command") ? Convert.ToString(r.Args["command"]) : "";
+            if (string.IsNullOrWhiteSpace(command)) throw new ArgumentException("command is required");
+            var psi = new ProcessStartInfo("cmd.exe", "/d /s /c \"" + command + "\"")
+            {
+                WorkingDirectory = _root,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+            using (var p = Process.Start(psi))
+            {
+                Task<string> so = p.StandardOutput.ReadToEndAsync();
+                Task<string> se = p.StandardError.ReadToEndAsync();
+                if (!p.WaitForExit(15000)) { try { p.Kill(true); } catch { } throw new TimeoutException("shell timed out"); }
+                string output = (so.Result + se.Result).Trim();
+                if (output.Length > 20000) output = output.Substring(0, 20000) + "\n[truncated]";
+                return "exit=" + p.ExitCode + "\n" + output;
+            }
+        }
+
+        string StartProgram(ActionRequest r, CancellationToken ct)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("start_program requires Full tier and Approved=true");
+            string path = r.Args.ContainsKey("path") ? Convert.ToString(r.Args["path"]) : "";
+            string args = r.Args.ContainsKey("args") ? Convert.ToString(r.Args["args"]) : "";
+            if (string.IsNullOrWhiteSpace(path)) throw new ArgumentException("path is required");
+            var psi = new ProcessStartInfo(path, args) { WorkingDirectory = _root, UseShellExecute = false };
+            var p = Process.Start(psi);
+            return "started pid=" + (p == null ? 0 : p.Id);
+        }
+
+        string FileInfo(ActionRequest r, CancellationToken ct)
+        {
+            string p = FullPath(r, "path", true);
+            FileInfo fi = new FileInfo(p);
+            if (fi.Exists) return "file " + fi.Length + " bytes, modified " + fi.LastWriteTimeUtc.ToString("o");
+            DirectoryInfo di = new DirectoryInfo(p);
+            return "dir, modified " + di.LastWriteTimeUtc.ToString("o");
+        }
+
+        string MakeDir(ActionRequest r, CancellationToken ct)
+        {
+            if (r.Tier == PermissionTier.ReadOnly) throw new UnauthorizedAccessException("read-only tier cannot make directories");
+            string p = FullPath(r, "path", false);
+            Directory.CreateDirectory(p);
+            return "created " + p;
+        }
+
+        string DeleteFile(ActionRequest r, CancellationToken ct)
+        {
+            if (r.Tier == PermissionTier.ReadOnly) throw new UnauthorizedAccessException("read-only tier cannot delete files");
+            string p = FullPath(r, "path", true);
+            if (Directory.Exists(p)) throw new IOException("delete_file only deletes files: " + p);
+            File.Delete(p);
+            return "deleted " + p;
+        }
+
+        string CopyFile(ActionRequest r, CancellationToken ct)
+        {
+            if (r.Tier == PermissionTier.ReadOnly) throw new UnauthorizedAccessException("read-only tier cannot copy files");
+            string from = FullPath(r, "from", true);
+            string to = FullPath(r, "to", false);
+            Directory.CreateDirectory(Path.GetDirectoryName(to));
+            File.Copy(from, to, true);
+            return "copied " + from + " -> " + to;
+        }
+
+        string MoveFile(ActionRequest r, CancellationToken ct)
+        {
+            if (r.Tier == PermissionTier.ReadOnly) throw new UnauthorizedAccessException("read-only tier cannot move files");
+            string from = FullPath(r, "from", true);
+            string to = FullPath(r, "to", false);
+            Directory.CreateDirectory(Path.GetDirectoryName(to));
+            File.Move(from, to);
+            return "moved " + from + " -> " + to;
+        }
+
+        string RollbackSelf(ActionRequest r)
+        {
+            string snapDir = Path.Combine(_root, ".snapshots");
+            if (!Directory.Exists(snapDir)) throw new DirectoryNotFoundException("no .snapshots directory");
+            string want = r.Args != null && r.Args.ContainsKey("snapshot_id") ? Convert.ToString(r.Args["snapshot_id"]) : "";
+            string[] files = Directory.GetFiles(snapDir, "*.json");
+            Array.Sort(files);
+            Array.Reverse(files);
+            string hit = null;
+            foreach (string f in files)
+                if (string.IsNullOrEmpty(want) || Path.GetFileNameWithoutExtension(f).StartsWith(want, StringComparison.OrdinalIgnoreCase))
+                { hit = f; break; }
+            if (hit == null) throw new FileNotFoundException("snapshot not found: " + want);
+            int ok = 0, fail = 0;
+            using (JsonDocument doc = JsonDocument.Parse(File.ReadAllText(hit, Encoding.UTF8)))
+            {
+                JsonElement arr;
+                if (!doc.RootElement.TryGetProperty("files", out arr) || arr.ValueKind != JsonValueKind.Array)
+                    throw new InvalidDataException("snapshot has no files");
+                foreach (JsonElement item in arr.EnumerateArray())
+                {
+                    try
+                    {
+                        string rel = item.TryGetProperty("rel", out var rv) ? rv.GetString() : "";
+                        if (string.IsNullOrEmpty(rel)) { fail++; continue; }
+                        string target = Path.GetFullPath(Path.Combine(_root, rel));
+                        if (!IsUnder(_root, target)) { fail++; continue; }
+                        bool existed = item.TryGetProperty("existed", out var ev) && ev.ValueKind == JsonValueKind.True;
+                        string old = item.TryGetProperty("old", out var ov) && ov.ValueKind == JsonValueKind.String ? ov.GetString() : "";
+                        if (existed)
+                        {
+                            Directory.CreateDirectory(Path.GetDirectoryName(target));
+                            File.WriteAllText(target, old, new UTF8Encoding(false));
+                        }
+                        else if (File.Exists(target)) File.Delete(target);
+                        ok++;
+                    }
+                    catch { fail++; }
+                }
+            }
+            return "restored " + ok + " file(s), failed " + fail + ", snapshot " + Path.GetFileNameWithoutExtension(hit);
+        }
+        string EditFile(ActionRequest r)
+        {
+            string path = FullPath(r, "path", true);
+            string oldS = r.Args.ContainsKey("old_string") ? Convert.ToString(r.Args["old_string"]) : "";
+            string newS = r.Args.ContainsKey("new_string") ? Convert.ToString(r.Args["new_string"]) : "";
+            if (string.IsNullOrEmpty(oldS)) throw new ArgumentException("old_string is required");
+            string text = File.ReadAllText(path, Encoding.UTF8);
+            if (!text.Contains(oldS)) throw new ArgumentException("old_string not found");
+            File.WriteAllText(path, text.Replace(oldS, newS), new UTF8Encoding(false));
+            return "replaced in " + Path.GetRelativePath(_root, path);
+        }
+        string WriteFile(ActionRequest r, CancellationToken ct)
+        {
+            if (r.Tier == PermissionTier.ReadOnly)
+                throw new UnauthorizedAccessException("read-only tier cannot write");
+            string p = FullPath(r, "path", false);
+            string text = r.Args.ContainsKey("text") ? Convert.ToString(r.Args["text"]) : "";
+            Directory.CreateDirectory(Path.GetDirectoryName(p));
+            File.WriteAllText(p, text, new UTF8Encoding(false));
+            return "written " + text.Length + " chars to " + p;
+        }
+    }
+
+    internal sealed class JsonlAuditSink : IAuditSink
+    {
+        readonly string _path;
+        readonly object _lock = new object();
+
+        public JsonlAuditSink(string path) { _path = path; }
+
+        public Task<string> AppendAsync(string span, string tool, string decision, string result,
+            string tier, Dictionary<string, object> args, string reason, CancellationToken ct)
+        {
+            string id = "body_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fff") + "_" + Guid.NewGuid().ToString("N").Substring(0, 6);
+            var rec = new Dictionary<string, object>
+            {
+                ["audit_id"] = id,
+                ["ts"] = DateTimeOffset.UtcNow.ToString("o"),
+                ["span"] = span,
+                ["tool"] = tool,
+                ["decision"] = decision,
+                ["result"] = result,
+                ["tier"] = tier,
+                ["reason"] = reason,
+                ["args"] = args
+            };
+            lock (_lock)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_path));
+                File.AppendAllText(_path, Json.Dump(rec) + "\n", new UTF8Encoding(false));
+            }
+            return Task.FromResult(id);
+        }
+    }
+
+    public sealed class BrokerReply
+    {
+        public string status { get; set; }
+        public string audit_id { get; set; }
+        public string message { get; set; }
+    }
+
+    internal sealed class BrokerAuditSink : IAuditSink
+    {
+        readonly IAuditSink _fallback;
+        public BrokerAuditSink(IAuditSink fallback) { _fallback = fallback; }
+
+        public async Task<string> AppendAsync(string span, string tool, string decision, string result,
+            string tier, Dictionary<string, object> args, string reason, CancellationToken ct)
+        {
+            string id = "body_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fff") + "_" + Guid.NewGuid().ToString("N").Substring(0, 6);
+            try
+            {
+                var doc = new Dictionary<string, object>
+                {
+                    ["audit_id"] = id,
+                    ["ts"] = DateTimeOffset.UtcNow.ToString("o"),
+                    ["session_id"] = "body",
+                    ["span"] = span,
+                    ["tool"] = tool,
+                    ["args_hash"] = "",
+                    ["args_summary"] = reason ?? "",
+                    ["payload_ref"] = "",
+                    ["tier"] = tier ?? "",
+                    ["decision"] = decision ?? "",
+                    ["approval"] = new Dictionary<string, object> { ["required"] = false, ["result"] = null },
+                    ["result"] = result ?? "",
+                    ["duration_ms"] = 0,
+                    ["snapshot_id"] = "",
+                    ["linked_audit_id"] = "",
+                    ["rolled_back_by"] = null
+                };
+                var req = new Dictionary<string, object> { ["op"] = "append", ["doc"] = doc, ["payload"] = "" };
+                using (var pipe = new NamedPipeClientStream(".", "ahz-scribe-audit", PipeDirection.InOut))
+                {
+                    pipe.Connect(3000);
+                    using (var w = new StreamWriter(pipe, new UTF8Encoding(false)) { AutoFlush = true })
+                    using (var r = new StreamReader(pipe, Encoding.UTF8))
+                    {
+                        w.WriteLine(Json.Dump(req));
+                        string line = r.ReadLine();
+                        var reply = string.IsNullOrEmpty(line) ? null : Json.Parse<BrokerReply>(line);
+                        if (reply != null && reply.status == "ok" && !string.IsNullOrEmpty(reply.audit_id))
+                            return reply.audit_id;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    Directory.CreateDirectory("_body-data");
+                    File.AppendAllText(Path.Combine("_body-data", "broker-error.log"), ex.ToString() + "\n");
+                }
+                catch { }
+            }
+            return await _fallback.AppendAsync(span, tool, decision, result, tier, args, reason, ct).ConfigureAwait(false);
+        }
+    }
+    internal static class BodyServer
+    {
+        public static readonly string PipeName = Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body";
+
+        public static async Task RunAsync(CancellationToken ct)
+        {
+            string bodyData = Environment.GetEnvironmentVariable("AHZ_BODY_DATA");
+            string root = string.IsNullOrWhiteSpace(bodyData) ? Path.Combine(Directory.GetCurrentDirectory(), "_body-data") : bodyData;
+            Directory.CreateDirectory(root);
+            var audit = new BrokerAuditSink(new JsonlAuditSink(Path.Combine(root, "audit.jsonl")));
+            var executor = new BodyExecutor(Environment.CurrentDirectory, audit);
+
+            while (!ct.IsCancellationRequested)
+            {
+                using (var pipe = new NamedPipeServerStream(PipeName, PipeDirection.InOut, 1,
+                    PipeTransmissionMode.Byte, PipeOptions.Asynchronous))
+                {
+                    await pipe.WaitForConnectionAsync(ct).ConfigureAwait(false);
+                    using (var reader = new StreamReader(pipe, Encoding.UTF8))
+                    using (var writer = new StreamWriter(pipe, new UTF8Encoding(false)) { AutoFlush = true })
+                    {
+                        string line = await reader.ReadLineAsync().ConfigureAwait(false);
+                        BodyReply reply = new BodyReply();
+                        try
+                        {
+                            var env = Json.Parse<BodyEnvelope>(line);
+                            if (env == null || env.Action != "execute" || env.Request == null)
+                                throw new InvalidOperationException("bad envelope");
+                            reply.Result = await executor.ExecuteAsync(env.Request, ct).ConfigureAwait(false);
+                            reply.Ok = reply.Result.Ok;
+                        }
+                        catch (Exception ex)
+                        {
+                            reply.Ok = false;
+                            reply.Error = ex.Message;
+                        }
+                        await writer.WriteLineAsync(Json.Dump(reply)).ConfigureAwait(false);
+                    }
+                }
+            }
+        }
+    }
+
+    internal static class SelfTest
+    {
+        public static int Run()
+        {
+            string root = Path.Combine(Directory.GetCurrentDirectory(), "_body-selftest-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            File.WriteAllText(Path.Combine(root, "a.txt"), "hello", new UTF8Encoding(false));
+            var auditPath = Path.Combine(root, "audit.jsonl");
+            var exec = new BodyExecutor(root, new JsonlAuditSink(auditPath));
+
+            var read = exec.ExecuteAsync(new ActionRequest
+            {
+                RequestId = "r1", Tool = "read_file", Tier = PermissionTier.ReadOnly,
+                Args = new Dictionary<string, object> { ["path"] = "a.txt" }
+            }, CancellationToken.None).GetAwaiter().GetResult();
+
+            var list = exec.ExecuteAsync(new ActionRequest
+            {
+                RequestId = "r2", Tool = "list_dir", Tier = PermissionTier.ReadOnly,
+                Args = new Dictionary<string, object> { ["path"] = "." }
+            }, CancellationToken.None).GetAwaiter().GetResult();
+
+            var write = exec.ExecuteAsync(new ActionRequest
+            {
+                RequestId = "r3", Tool = "write_file", Tier = PermissionTier.WorkspaceWrite,
+                Args = new Dictionary<string, object> { ["path"] = "b.txt", ["text"] = "ok" }
+            }, CancellationToken.None).GetAwaiter().GetResult();
+
+            var glob = exec.ExecuteAsync(new ActionRequest { RequestId = "r6", Tool = "glob", Tier = PermissionTier.ReadOnly, Args = new Dictionary<string, object> { ["pattern"] = "*.txt", ["path"] = "." } }, CancellationToken.None).GetAwaiter().GetResult();
+            var tail = exec.ExecuteAsync(new ActionRequest { RequestId = "r7", Tool = "tail_file", Tier = PermissionTier.ReadOnly, Args = new Dictionary<string, object> { ["path"] = "a.txt", ["lines"] = 5 } }, CancellationToken.None).GetAwaiter().GetResult();
+            var search = exec.ExecuteAsync(new ActionRequest { RequestId = "r8", Tool = "search_text", Tier = PermissionTier.ReadOnly, Args = new Dictionary<string, object> { ["pattern"] = "hello", ["path"] = "." } }, CancellationToken.None).GetAwaiter().GetResult();
+
+            var shot = exec.ExecuteAsync(new ActionRequest { RequestId = "r10", Tool = "desktop_screenshot", Tier = PermissionTier.ReadOnly, Args = new Dictionary<string, object>() }, CancellationToken.None).GetAwaiter().GetResult();
+            Directory.CreateDirectory(Path.Combine(root, ".snapshots"));
+            File.WriteAllText(Path.Combine(root, ".snapshots", "snap-test.json"), "{\"files\":[{\"rel\":\"a.txt\",\"old\":\"hello\",\"existed\":true}]}", new UTF8Encoding(false));
+            File.WriteAllText(Path.Combine(root, "a.txt"), "broken", new UTF8Encoding(false));
+            var rollback = exec.ExecuteAsync(new ActionRequest { RequestId = "r11", Tool = "rollback_self", Tier = PermissionTier.ReadOnly, Args = new Dictionary<string, object>() }, CancellationToken.None).GetAwaiter().GetResult();
+            var windows = exec.ExecuteAsync(new ActionRequest { RequestId = "r9", Tool = "desktop_list_windows", Tier = PermissionTier.ReadOnly, Args = new Dictionary<string, object>() }, CancellationToken.None).GetAwaiter().GetResult();
+            var shell = exec.ExecuteAsync(new ActionRequest
+            {
+                RequestId = "r4", Tool = "run_shell", Tier = PermissionTier.Full, Approved = true,
+                Args = new Dictionary<string, object> { ["command"] = "echo shell-ok" }
+            }, CancellationToken.None).GetAwaiter().GetResult();
+            var denied = exec.ExecuteAsync(new ActionRequest
+            {
+                RequestId = "r5", Tool = "run_shell", Tier = PermissionTier.Full, Approved = false,
+                Args = new Dictionary<string, object> { ["command"] = "echo bad" }
+            }, CancellationToken.None).GetAwaiter().GetResult();
+
+            bool ok = read.Ok && read.Output == "hello" && list.Ok && list.Output.Contains("a.txt")
+                      && write.Ok && File.ReadAllText(Path.Combine(root, "b.txt")) == "ok"
+                      && File.Exists(auditPath) && shell.Ok && shell.Output.Contains("shell-ok")
+                      && glob.Ok && glob.Output.Contains("a.txt") && tail.Ok && tail.Output.Contains("hello")
+                      && search.Ok && search.Output.Contains("hello") && rollback.Ok && File.ReadAllText(Path.Combine(root, "a.txt")) == "hello" && windows.Ok && shot.Ok && File.Exists(Path.Combine(root, shot.Output))
+                      && !denied.Ok;
+            Console.WriteLine(ok ? "BODY SELF-TEST: PASS" : "BODY SELF-TEST: FAIL");
+            if (!ok)
+            {
+                Console.WriteLine("read=" + read.Ok + " " + read.Error);
+                Console.WriteLine("list=" + list.Ok + " " + list.Error);
+                Console.WriteLine("write=" + write.Ok + " " + write.Error);
+            }
+            try { Directory.Delete(root, true); } catch { }
+            return ok ? 0 : 1;
+        }
+    }
+
+    internal static class IpcSelfTest
+    {
+        public static int Run()
+        {
+            string file = Path.Combine(Directory.GetCurrentDirectory(), "_body-ipc.txt");
+            File.WriteAllText(file, "ipc-hello", new UTF8Encoding(false));
+            bool ok = false;
+            string error = "";
+            using (var cts = new CancellationTokenSource())
+            {
+                Task server = Task.Run(() => BodyServer.RunAsync(cts.Token));
+                NamedPipeClientStream pipe = null;
+                try
+                {
+                    pipe = new NamedPipeClientStream(".", BodyServer.PipeName, PipeDirection.InOut);
+                    pipe.Connect(5000);
+                    using (var w = new StreamWriter(pipe, new UTF8Encoding(false)) { AutoFlush = true })
+                    using (var r = new StreamReader(pipe, Encoding.UTF8))
+                    {
+                        string req = "{\"Action\":\"execute\",\"Request\":{\"RequestId\":\"ipc1\",\"Tool\":\"read_file\",\"Tier\":\"ReadOnly\",\"Args\":{\"path\":\"_body-ipc.txt\"}}}";
+                        w.WriteLine(req);
+                        string resp = r.ReadLine();
+                        ok = resp != null && resp.Contains("ipc-hello");
+                        if (!ok) error = resp == null ? "null response" : resp;
+                    }
+                }
+                catch (Exception ex) { error = ex.Message; }
+                finally
+                {
+                    try { if (pipe != null) pipe.Dispose(); } catch { }
+                    cts.Cancel();
+                    try { server.Wait(2000); } catch { }
+                    try { File.Delete(file); } catch { }
+                }
+            }
+            Console.WriteLine(ok ? "BODY IPC: PASS" : "BODY IPC: FAIL " + error);
+            return ok ? 0 : 1;
+        }
+    }
+
+}

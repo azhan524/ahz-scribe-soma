@@ -1,0 +1,54 @@
+name: repo-hygiene
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  names-and-docs:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check naming contract
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/check-names.ps1
+
+      - name: Check required open-source files
+        shell: powershell
+        run: |
+          $required = @(
+            'README.md', 'LICENSE', 'SECURITY.md', 'CONTRIBUTING.md', 'NOTICE',
+            'docs/architecture.md', 'docs/threat-model.md', 'docs/roadmap.md', 'docs/migration.md', 'docs/open-source-decision.md',
+            'docs/engineering-2026-10-25.md'
+          )
+          $missing = @($required | Where-Object { -not (Test-Path -LiteralPath $_) })
+          if ($missing.Count -gt 0) {
+            Write-Host "missing: $($missing -join ', ')" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host 'required files: OK'
+
+      - name: Reject committed secrets and personal paths
+        shell: powershell
+        run: |
+          $patterns = @(
+            'sk-[A-Za-z0-9_\-]{10,}',
+            'ghp_[A-Za-z0-9_\-]{10,}',
+            'AIza[0-9A-Za-z_\-]{10,}',
+            '2659663834',
+            '2021096066',
+            'C:\\Users\\Ahzhan'
+          )
+          $files = Get-ChildItem -Recurse -File -Force |
+            Where-Object { $_.FullName -notmatch '\\.git\\' -and $_.Name -ne 'repo-hygiene.yml' }
+          $hits = @()
+          foreach ($p in $patterns) {
+            $hits += @($files | Select-String -Pattern $p -ErrorAction SilentlyContinue)
+          }
+          if ($hits.Count -gt 0) {
+            $hits | Select-Object Path, LineNumber, Line | Format-Table -AutoSize
+            Write-Host 'secret/personal scan: FAIL' -ForegroundColor Red
+            exit 1
+          }
+          Write-Host 'secret/personal scan: OK'

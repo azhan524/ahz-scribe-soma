@@ -1,0 +1,49 @@
+name: ahz-scribe
+
+services:
+  ahz-scribe-brain:
+    image: ghcr.io/azhan524/ahz-scribe-brain:latest
+    container_name: ahz-scribe-brain
+    restart: unless-stopped
+    networks:
+      - ahz-scribe-internal
+    # brain 不挂工作区；只允许模型 API 出站
+    volumes:
+      - ahz-scribe-brain-data:/data
+
+  ahz-scribe-body:
+    image: ghcr.io/azhan524/ahz-scribe-body:latest
+    container_name: ahz-scribe-body
+    restart: unless-stopped
+    networks:
+      - ahz-scribe-internal
+    # body 是唯一挂工作区和执行工具的模块
+    volumes:
+      - ahz-scribe-workspace:/workspace
+      - ahz-scribe-body-data:/data
+    depends_on:
+      - ahz-scribe-brain
+
+  ahz-scribe-face:
+    image: ghcr.io/azhan524/ahz-scribe-face:latest
+    container_name: ahz-scribe-face
+    restart: unless-stopped
+    networks:
+      - ahz-scribe-internal
+    ports:
+      - "127.0.0.1:17860:17860"
+    depends_on:
+      - ahz-scribe-brain
+      - ahz-scribe-body
+
+networks:
+  ahz-scribe-internal:
+    name: ahz-scribe-internal
+
+volumes:
+  ahz-scribe-brain-data:
+    name: ahz-scribe-brain-data
+  ahz-scribe-body-data:
+    name: ahz-scribe-body-data
+  ahz-scribe-workspace:
+    name: ahz-scribe-workspace
