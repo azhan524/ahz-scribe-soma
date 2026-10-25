@@ -1,5 +1,7 @@
 # ahz-scribe
 
+[![repo-hygiene](https://github.com/azhan524/ahz-scribe-soma/actions/workflows/repo-hygiene.yml/badge.svg)](https://github.com/azhan524/ahz-scribe-soma/actions/workflows/repo-hygiene.yml)
+
 > **Pre-release**：brain / body / face 已拆成可构建模块，但最终 UI 与部分工具仍在迁移中。
 >
 > 这是一个能读写文件、执行 Shell、操作桌面的本地 Agent。**不要在生产机、共享账户或存有敏感数据的机器上直接授予完全访问权限。**
