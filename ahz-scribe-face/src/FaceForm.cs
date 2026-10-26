@@ -868,7 +868,7 @@ namespace AhzScribe.Face
         }
         void NoteResponse()
         {
-            if (_lastResponse != null) _lastResponse.Text = "最后响应：" + DateTime.Now.ToString("HH:mm:ss");
+            if (_lastResponse != null) { _lastResponse.Text = "最后响应：" + DateTime.Now.ToString("HH:mm:ss"); _lastResponse.ForeColor = Theme.TextTertiary; }
         }
         void AppendChat(string role, string text, string kind)
         {
@@ -1631,6 +1631,7 @@ namespace AhzScribe.Face
             try
             {
                 FaceSession.BeginTask(_sessionPath, text);
+                if (_lastResponse != null) { _lastResponse.Text = "最后响应：等待中…"; _lastResponse.ForeColor = Theme.StateWarning; }
                 taskStarted = true;
                 _host.Approval = delegate(BrainToolCall call, CancellationToken ct)
                 {
@@ -1643,7 +1644,7 @@ namespace AhzScribe.Face
                 AppendChat("Ahz", answer ?? "", "chat");
             UpdateStatus();
             }
-            catch (Exception ex) { Append("错误：" + ex.Message); }
+            catch (Exception ex) { Append("错误：" + ex.Message); if (_lastResponse != null) { _lastResponse.Text = "最后响应：错误 " + DateTime.Now.ToString("HH:mm:ss"); _lastResponse.ForeColor = Theme.StateDanger; } }
             finally
             {
                 if (taskStarted) FaceSession.EndTask(_sessionPath);
