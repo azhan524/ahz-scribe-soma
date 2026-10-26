@@ -21,6 +21,8 @@ namespace AhzScribe.Body
 {
     internal static class Program
     {
+        [System.Runtime.InteropServices.DllImport("advapi32.dll", SetLastError = true)]
+        static extern bool GetTokenInformation(IntPtr token, int infoClass, IntPtr info, int len, out int needed);
         public static int Main(string[] args)
         {
             if (args != null && args.Length > 0 && args[0] == "--self-test")
@@ -30,6 +32,16 @@ namespace AhzScribe.Body
             if (args != null && args.Length > 0 && args[0] == "--token-test")
             {
                 var id = System.Security.Principal.WindowsIdentity.GetCurrent();
+                try
+                {
+                    int isApp = 0; int len = 0;
+                    GetTokenInformation(id.Token, 29, IntPtr.Zero, 0, out len);
+                    IntPtr buf = System.Runtime.InteropServices.Marshal.AllocHGlobal(4);
+                    if (GetTokenInformation(id.Token, 29, buf, 4, out len)) isApp = System.Runtime.InteropServices.Marshal.ReadInt32(buf);
+                    System.Runtime.InteropServices.Marshal.FreeHGlobal(buf);
+                    Console.WriteLine("appcontainer=" + isApp);
+                }
+                catch (Exception ex) { Console.WriteLine("tokenerr=" + ex.Message); }
                 Console.WriteLine("user=" + id.Name + " owner=" + id.Owner);
                 foreach (var g in id.Groups)
                     if (g.Value != null && g.Value.StartsWith("S-1-16-")) Console.WriteLine("integrity=" + g.Value);
