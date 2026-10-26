@@ -62,9 +62,9 @@ namespace AhzScribe.Face
             _pulse = new PulseScheduler(_pulseBody, _memory, new FacePulseAudit(AppendTrace, Path.Combine(_dataDir, "pulse.log")),
                 new FacePulseSink(OnPulse), new ModelPulseDecider(_memory, _host.Model));
             _pulse.Start(60000);
-            _sensor = new BodySensor();
+            _sensor = new BodySensor(_settings.Workspace);
             _bodyTimer = new System.Threading.Timer(delegate { SampleBody(); }, null, 0, 30000);
-            _sensor = new BodySensor();
+            _sensor = new BodySensor(_settings.Workspace);
             _bodyTimer = new System.Threading.Timer(delegate { SampleBody(); }, null, 0, 30000);
             FormClosed += delegate { _pulse.Dispose(); _bodyTimer.Dispose(); };
             _host.Policy = new SelfIterationPolicy();

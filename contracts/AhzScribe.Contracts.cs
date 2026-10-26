@@ -75,6 +75,11 @@ namespace AhzScribe.Contracts
         public bool WorkspaceDirty { get; set; }
         public bool NetworkOnline { get; set; }
         public bool ActiveTask { get; set; }
+        public double CpuPercent { get; set; }
+        public long MemoryMb { get; set; }
+        public double DiskFreeGb { get; set; }
+        public double BatteryPercent { get; set; }
+        public bool AgentProcessAlive { get; set; }
     }
 
     public sealed class MemoryItem

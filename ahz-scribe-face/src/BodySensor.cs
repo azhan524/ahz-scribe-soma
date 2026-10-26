@@ -17,6 +17,12 @@ namespace AhzScribe.Face
         [StructLayout(LayoutKind.Sequential)]
         struct LASTINPUTINFO { public uint cbSize; public uint dwTime; }
 
+        readonly string _workspace;
+        DateTime _lastCpuAt = DateTime.UtcNow;
+        TimeSpan _lastCpu = TimeSpan.Zero;
+
+        public BodySensor(string workspace = "") { _workspace = workspace ?? ""; }
+
         [DllImport("user32.dll")] static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
         [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
@@ -41,6 +47,37 @@ namespace AhzScribe.Face
             }
             catch { }
             try { s.NetworkOnline = NetworkInterface.GetIsNetworkAvailable(); } catch { }
+            try
+            {
+                Process self = Process.GetCurrentProcess();
+                s.MemoryMb = self.WorkingSet64 / 1024 / 1024;
+                TimeSpan cpu = self.TotalProcessorTime;
+                DateTime now = DateTime.UtcNow;
+                double ms = (now - _lastCpuAt).TotalMilliseconds;
+                if (ms > 0) s.CpuPercent = Math.Round(Math.Max(0, Math.Min(100, (cpu - _lastCpu).TotalMilliseconds / ms / Environment.ProcessorCount * 100)), 1);
+                _lastCpuAt = now; _lastCpu = cpu;
+                s.AgentProcessAlive = true;
+                if (!string.IsNullOrEmpty(_workspace) && Directory.Exists(_workspace))
+                {
+                    try
+                    {
+                        var psi = new ProcessStartInfo("git", "status --porcelain") { WorkingDirectory = _workspace, UseShellExecute = false, RedirectStandardOutput = true, CreateNoWindow = true };
+                        using (Process gp = Process.Start(psi))
+                        {
+                            string dirty = gp.StandardOutput.ReadToEnd();
+                            gp.WaitForExit(3000);
+                            s.WorkspaceDirty = !string.IsNullOrWhiteSpace(dirty);
+                        }
+                    }
+                    catch { }
+                }
+                s.BatteryPercent = -1;
+                PowerStatus power = SystemInformation.PowerStatus;
+                s.BatteryPercent = (int)(power.BatteryLifePercent * 100);
+                DriveInfo drive = new DriveInfo(Path.GetPathRoot(Application.StartupPath));
+                s.DiskFreeGb = Math.Round(drive.AvailableFreeSpace / 1024.0 / 1024.0 / 1024.0, 1);
+            }
+            catch { }
             try
             {
                 s.Locked = Process.GetProcessesByName("LogonUI").Length > 0;
@@ -69,7 +106,7 @@ namespace AhzScribe.Face
             }
             catch { }
             return "身体状态：空闲" + (s.IdleSeconds / 60) + "分钟 | 前台 " + fg +
-                " | 网络" + (s.NetworkOnline ? "在线" : "离线") + battery + disk;
+                " | 网络" + (s.NetworkOnline ? "在线" : "离线") + " | 内存" + s.MemoryMb + "MB" + battery + disk;
         }
     }
 }
