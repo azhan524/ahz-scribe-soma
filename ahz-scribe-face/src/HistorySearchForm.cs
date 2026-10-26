@@ -20,24 +20,24 @@ namespace AhzScribe.Face
             Width = 720;
             Height = 520;
             StartPosition = FormStartPosition.CenterParent;
-            BackColor = Color.FromArgb(24, 26, 30);
-            ForeColor = Color.FromArgb(220, 226, 234);
+            BackColor = Theme.BgPrimary;
+            ForeColor = Theme.TextPrimary;
             Font = new Font("Microsoft YaHei UI", 9f);
 
             _all = FaceSession.Load(sessionPath, 5000);
 
             _query = new TextBox();
             _query.Dock = DockStyle.Top;
-            _query.BackColor = Color.FromArgb(38, 41, 48);
-            _query.ForeColor = Color.White;
+            _query.BackColor = Theme.BgSecondary;
+            _query.ForeColor = Theme.TextPrimary;
             _query.BorderStyle = BorderStyle.FixedSingle;
             _query.PlaceholderText = "搜索对话内容...";
             _query.TextChanged += delegate { Search(); };
 
             _results = new ListBox();
             _results.Dock = DockStyle.Fill;
-            _results.BackColor = Color.FromArgb(28, 31, 36);
-            _results.ForeColor = Color.FromArgb(210, 218, 228);
+            _results.BackColor = Theme.BgPrimary;
+            _results.ForeColor = Theme.TextPrimary;
             _results.BorderStyle = BorderStyle.None;
             _results.Font = new Font("Consolas", 9f);
             _results.DoubleClick += delegate { Pick(); };
@@ -47,7 +47,7 @@ namespace AhzScribe.Face
             _count.Dock = DockStyle.Bottom;
             _count.Height = 26;
             _count.Padding = new Padding(6, 4, 0, 0);
-            _count.ForeColor = Color.FromArgb(160, 170, 185);
+            _count.ForeColor = Theme.TextSecondary;
 
             Controls.Add(_results);
             Controls.Add(_count);

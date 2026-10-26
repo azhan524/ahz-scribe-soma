@@ -14,8 +14,8 @@ namespace AhzScribe.Face
             Width = 620;
             Height = 360;
             StartPosition = FormStartPosition.CenterParent;
-            BackColor = Color.FromArgb(24, 26, 30);
-            ForeColor = Color.FromArgb(225, 230, 238);
+            BackColor = Theme.BgPrimary;
+            ForeColor = Theme.TextPrimary;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -26,15 +26,15 @@ namespace AhzScribe.Face
             head.Height = 44;
             head.Padding = new Padding(18, 12, 18, 0);
             head.Font = new Font("Microsoft YaHei UI", 11f, FontStyle.Bold);
-            head.ForeColor = Color.FromArgb(240, 244, 250);
+            head.ForeColor = Theme.TextPrimary;
 
             var body = new TextBox();
             body.Multiline = true;
             body.ReadOnly = true;
             body.ScrollBars = ScrollBars.Vertical;
             body.Dock = DockStyle.Fill;
-            body.BackColor = Color.FromArgb(30, 33, 38);
-            body.ForeColor = Color.FromArgb(205, 212, 222);
+            body.BackColor = Theme.BgPrimary;
+            body.ForeColor = Theme.TextPrimary;
             body.BorderStyle = BorderStyle.None;
             body.Font = new Font("Consolas", 9.5f);
             body.Text = change ?? "";
@@ -43,16 +43,16 @@ namespace AhzScribe.Face
             var buttons = new Panel();
             buttons.Dock = DockStyle.Bottom;
             buttons.Height = 58;
-            buttons.BackColor = Color.FromArgb(24, 26, 30);
+            buttons.BackColor = Theme.BgPrimary;
 
             var no = new Button();
             no.Text = "驳回";
             no.Width = 96;
             no.Dock = DockStyle.Right;
             no.FlatStyle = FlatStyle.Flat;
-            no.FlatAppearance.BorderColor = Color.FromArgb(90, 96, 108);
-            no.BackColor = Color.FromArgb(36, 39, 45);
-            no.ForeColor = Color.FromArgb(210, 216, 226);
+            no.FlatAppearance.BorderColor = Theme.BorderStrong;
+            no.BackColor = Theme.BgSecondary;
+            no.ForeColor = Theme.TextPrimary;
             no.Click += delegate { Approved = false; DialogResult = DialogResult.No; Close(); };
 
             var yes = new Button();
@@ -61,8 +61,8 @@ namespace AhzScribe.Face
             yes.Dock = DockStyle.Right;
             yes.FlatStyle = FlatStyle.Flat;
             yes.FlatAppearance.BorderSize = 0;
-            yes.BackColor = Color.FromArgb(64, 120, 220);
-            yes.ForeColor = Color.White;
+            yes.BackColor = Theme.StateInfo;
+            yes.ForeColor = Theme.TextPrimary;
             yes.Click += delegate { Approved = true; DialogResult = DialogResult.Yes; Close(); };
 
             buttons.Controls.Add(no);
