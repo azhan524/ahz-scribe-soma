@@ -104,13 +104,17 @@ internal static class Program
         }
         if (args != null && Array.IndexOf(args, "--proactive-test") >= 0)
         {
-            var st = new FaceState { ProactiveCount = 2, LastProactiveDate = DateTime.Now.ToString("yyyy-MM-dd") };
-            bool cap = !ProactiveGate.Allow(st, DateTime.Now);
-            var paused = new FaceState { ProactivePausedUntil = DateTime.Now.AddHours(1).ToString("o") };
-            bool pause = !ProactiveGate.Allow(paused, DateTime.Now);
-            var normal = new FaceState { ProactiveCount = 0 };
-            bool ok = cap && pause && ProactiveGate.Allow(normal, DateTime.Now);
-            Console.WriteLine("cap=" + cap + " paused=" + pause);
+            DateTime testNow = DateTime.Today.AddHours(12);
+            var st = new FaceState { ProactiveCount = 2, LastProactiveDate = testNow.ToString("yyyy-MM-dd") };
+            bool cap = !ProactiveGate.Allow(st, testNow);
+            var paused = new FaceState { ProactivePausedUntil = testNow.AddHours(1).ToString("o") };
+            bool pause = !ProactiveGate.Allow(paused, testNow);
+            var normal = new FaceState { ProactiveCount = 0, LastProactiveDate = testNow.ToString("yyyy-MM-dd") };
+            bool ok = cap && pause && ProactiveGate.Allow(normal, testNow);
+            var recovered = new FaceState { ProactiveCount = 0, UnansweredProactive = 0, LastProactiveDate = testNow.ToString("yyyy-MM-dd"), ProactivePausedUntil = testNow.AddMinutes(-1).ToString("o") };
+            bool recovery = ProactiveGate.Allow(recovered, testNow);
+            ok = ok && recovery;
+            Console.WriteLine("cap=" + cap + " paused=" + pause + " recovery=" + recovery);
             Console.WriteLine(ok ? "PROACTIVE GATE: PASS" : "PROACTIVE GATE: FAIL");
             return ok ? 0 : 1;
         }
