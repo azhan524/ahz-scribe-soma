@@ -567,6 +567,8 @@ namespace AhzScribe.Face
         void OnPulse(PulseEvent evt)
         {
             if (InvokeRequired) { BeginInvoke(new Action<PulseEvent>(OnPulse), evt); return; }
+            List<MemoryItem> pm = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult();
+            if (!ProactivePolicy.ReferencesMemory(evt.Summary ?? "", pm)) { FaceAudit.Append(_dataDir, "proactive", "message", "blocked", evt.Summary ?? "", "no_memory_reference"); return; }
             if (!AllowProactive()) { FaceAudit.Append(_dataDir, "proactive", "message", "blocked", "", "policy"); return; }
             if (!string.IsNullOrEmpty(evt.IntentId)) FaceSession.CloseIntent(_sessionPath, evt.IntentId, "done");
             AppendChat("Ahz", evt.Summary ?? "提醒", "chat");

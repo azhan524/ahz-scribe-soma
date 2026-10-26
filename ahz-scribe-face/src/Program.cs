@@ -102,6 +102,15 @@ internal static class Program
             }
             finally { try { Directory.Delete(dir, true); } catch { } }
         }
+        if (args != null && Array.IndexOf(args, "--policy-test") >= 0)
+        {
+            var mem = new List<MemoryItem> { new MemoryItem { Kind = "semantic", Key = "pref", Value = "用户喜欢蓝鲸" } };
+            bool yes = ProactivePolicy.ReferencesMemory("提醒：蓝鲸这件事", mem);
+            bool no = ProactivePolicy.ReferencesMemory("你好呀", mem);
+            Console.WriteLine("policy yes=" + yes + " no=" + no);
+            Console.WriteLine(yes && !no ? "PROACTIVE POLICY: PASS" : "PROACTIVE POLICY: FAIL");
+            return yes && !no ? 0 : 1;
+        }
         if (args != null && Array.IndexOf(args, "--drive-test") >= 0)
         {
             var mem = new List<MemoryItem>
