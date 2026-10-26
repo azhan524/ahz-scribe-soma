@@ -15,14 +15,36 @@ namespace AhzScribe.Face
         public string Episode { get; set; }
     }
 
+    public sealed class OpenIntent
+    {
+        public string Id { get; set; }
+        public string Text { get; set; }
+        public string Status { get; set; } // open / done / cancelled
+        public string CreatedAt { get; set; }
+        public string DueAt { get; set; }
+        public string Source { get; set; }
+    }
+
+    public sealed class PulseTrigger
+    {
+        public string Type { get; set; } // user_message / timer / intent_due / body_event / drive
+        public string Payload { get; set; }
+        public string ReceivedAt { get; set; }
+    }
+
     public sealed class FaceState
     {
         public string CurrentEpisode { get; set; }
         public int MessageCount { get; set; }
         public string LastUserAt { get; set; }
+        public string LastUserContactAt { get; set; }
         public string CurrentFocus { get; set; }
         public string LastPulseResult { get; set; }
         public string UpdatedAt { get; set; }
+        public string ActiveTask { get; set; }
+        public string ActiveTaskStartedAt { get; set; }
+        public List<OpenIntent> OpenIntents { get; set; }
+        public PulseTrigger LastPulseTrigger { get; set; }
     }
 
     public static class FaceSession
@@ -33,7 +55,7 @@ namespace AhzScribe.Face
 
         public static string StatePath(string sessionPath)
         {
-            return Path.Combine(Path.GetDirectoryName(sessionPath), "state.json");
+            return Path.Combine(Path.GetDirectoryName(sessionPath), "current_state.json");
         }
 
         public static FaceState LoadState(string sessionPath)
@@ -60,7 +82,7 @@ namespace AhzScribe.Face
             }
             catch { }
         }
-        static void SaveState(string sessionPath, FaceState st)
+        public static void SaveState(string sessionPath, FaceState st)
         {
             try
             {
@@ -71,6 +93,79 @@ namespace AhzScribe.Face
             catch { }
         }
 
+        public static void BeginTask(string sessionPath, string text)
+        {
+            try
+            {
+                lock (Gate)
+                {
+                    FaceState st = LoadState(sessionPath) ?? new FaceState { CurrentEpisode = NewEpisodeId(), OpenIntents = new List<OpenIntent>() };
+                    st.ActiveTask = text ?? "";
+                    st.ActiveTaskStartedAt = DateTime.Now.ToString("o");
+                    SaveState(sessionPath, st);
+                }
+            }
+            catch { }
+        }
+
+        public static void EndTask(string sessionPath)
+        {
+            try
+            {
+                lock (Gate)
+                {
+                    FaceState st = LoadState(sessionPath);
+                    if (st == null) return;
+                    st.ActiveTask = "";
+                    st.ActiveTaskStartedAt = "";
+                    SaveState(sessionPath, st);
+                }
+            }
+            catch { }
+        }
+
+        public static OpenIntent AddIntent(string sessionPath, string text, string dueAt)
+        {
+            lock (Gate)
+            {
+                FaceState st = LoadState(sessionPath) ?? new FaceState { CurrentEpisode = NewEpisodeId(), OpenIntents = new List<OpenIntent>() };
+                if (st.OpenIntents == null) st.OpenIntents = new List<OpenIntent>();
+                var it = new OpenIntent
+                {
+                    Id = "intent:" + Guid.NewGuid().ToString("N"),
+                    Text = text ?? "",
+                    Status = "open",
+                    CreatedAt = DateTime.Now.ToString("o"),
+                    DueAt = dueAt ?? "",
+                    Source = "user"
+                };
+                st.OpenIntents.Add(it);
+                SaveState(sessionPath, st);
+                return it;
+            }
+        }
+
+        public static void CloseIntent(string sessionPath, string id, string status)
+        {
+            lock (Gate)
+            {
+                FaceState st = LoadState(sessionPath);
+                if (st == null || st.OpenIntents == null) return;
+                foreach (OpenIntent it in st.OpenIntents)
+                    if (it.Id == id) it.Status = string.IsNullOrEmpty(status) ? "done" : status;
+                SaveState(sessionPath, st);
+            }
+        }
+
+        public static void SetPulseTrigger(string sessionPath, string type, string payload)
+        {
+            lock (Gate)
+            {
+                FaceState st = LoadState(sessionPath) ?? new FaceState { CurrentEpisode = NewEpisodeId(), OpenIntents = new List<OpenIntent>() };
+                st.LastPulseTrigger = new PulseTrigger { Type = type, Payload = payload ?? "", ReceivedAt = DateTime.Now.ToString("o") };
+                SaveState(sessionPath, st);
+            }
+        }
         public static List<FaceMessage> Load(string path, int max)
         {
             var list = new List<FaceMessage>();
@@ -114,7 +209,7 @@ namespace AhzScribe.Face
                     message.Ts = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                     File.AppendAllText(path, JsonSerializer.Serialize(message, Json) + Environment.NewLine, new UTF8Encoding(false));
                     st.MessageCount++;
-                    if (message.Role == "你") st.LastUserAt = message.Ts;
+                    if (message.Role == "你") { st.LastUserAt = message.Ts; st.LastUserContactAt = message.Ts; }
                     SaveState(path, st);
                 }
             }

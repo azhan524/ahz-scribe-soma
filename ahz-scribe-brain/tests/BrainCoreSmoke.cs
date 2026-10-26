@@ -100,7 +100,16 @@ internal static class Program
             var hits = mem.RetrieveAsync("蓝鲸 是什么", 5, CancellationToken.None).GetAwaiter().GetResult();
             bool memoryOk = hits.Count == 1 && hits[0].Key == "蓝鲸";
             mem.RememberAsync(new MemoryItem { Kind = "episodic", Key = "episode:ep-1", Value = "用户喜欢蓝鲸", Summary = "episode ep-1" }, CancellationToken.None).GetAwaiter().GetResult();
-            var episodeHits = mem.RetrieveAsync("蓝鲸 episode", 5, CancellationToken.None).GetAwaiter().GetResult();
+            var episodeHits = mem.RetrieveAsync("蓝鲸 episode", 5, CancellationToken.None).GetAwaiter().GetResult();            mem.RememberAsync(new MemoryItem { Kind = "semantic", Key = "s2_key", Value = "alpha", SourceAuditId = "audit-s2" }, CancellationToken.None).GetAwaiter().GetResult();
+            int before = mem.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
+            mem.RememberAsync(new MemoryItem { Kind = "semantic", Key = "s2_key", Value = "alpha" }, CancellationToken.None).GetAwaiter().GetResult();
+            int afterDup = mem.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
+            mem.RememberAsync(new MemoryItem { Kind = "semantic", Key = "s2_key", Value = "beta" }, CancellationToken.None).GetAwaiter().GetResult();
+            List<MemoryItem> s2All = mem.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult();
+            bool s2Ok = before == afterDup && s2All.Exists(x => x.Key == "s2_key" && x.Value == "beta" && x.Status == "disputed") &&
+                s2All.Exists(x => x.SourceAuditId == "audit-s2") &&
+                File.Exists(Path.Combine(dir, "semantic.jsonl")) && File.Exists(Path.Combine(dir, "disputed.jsonl")) &&
+                mem.RetrieveAsync("s2_key", 5, CancellationToken.None).GetAwaiter().GetResult().Count >= 2;
             bool episodeOk = episodeHits.Exists(x => x.Key == "episode:ep-1");
 
             var audit = new Audit();
@@ -129,7 +138,8 @@ internal static class Program
                 && !policy.Check("AGENTS.md", out why)
                 && !policy.Check("devtools/bench/x.cs", out why)
                 && !policy.Check("../outside.txt", out why);
-            bool ok = memoryOk && episodeOk && pulseOk && agentOk && toolOk && modelOk && policyOk && linkOk && audit.Items.Count >= 2;
+            bool ok = memoryOk && episodeOk && s2Ok && pulseOk && agentOk && toolOk && modelOk && policyOk && linkOk && audit.Items.Count >= 2;
+            Console.WriteLine("S2 MEMORY: " + (s2Ok ? "PASS" : "FAIL"));
             Console.WriteLine(ok ? "BRAIN MEMORY/PULSE: PASS" : "BRAIN MEMORY/PULSE: FAIL");
             if (!ok) Console.WriteLine("memory=" + memoryOk + " pulse=" + pulseOk + " agent=" + agentOk + " tool=" + toolOk + " episode=" + episodeOk + " model=" + modelOk + " policy=" + policyOk + " link=" + linkOk + " audit=" + audit.Items.Count);
             return ok ? 0 : 1;

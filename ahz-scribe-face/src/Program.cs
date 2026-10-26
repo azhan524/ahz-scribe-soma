@@ -102,6 +102,33 @@ internal static class Program
             }
             finally { try { Directory.Delete(dir, true); } catch { } }
         }
+        if (args != null && Array.IndexOf(args, "--state-test") >= 0)
+        {
+            string dir = Path.Combine(AppContext.BaseDirectory, "_state-test-" + Guid.NewGuid().ToString("N"));
+            string sp = Path.Combine(dir, "sessions.jsonl");
+            try
+            {
+                FaceSession.Append(sp, new FaceMessage { Role = "你", Text = "状态测试", Kind = "chat" });
+                FaceSession.SetFocus(sp, "状态测试");
+                FaceSession.BeginTask(sp, "running");
+                OpenIntent it = FaceSession.AddIntent(sp, "提醒测试", "");
+                FaceSession.SetPulseTrigger(sp, "timer", "state-test");
+                FaceState a = FaceSession.LoadState(sp);
+                bool persisted = a != null && a.CurrentFocus == "状态测试" && a.ActiveTask == "running" &&
+                    a.OpenIntents != null && a.OpenIntents.Count > 0 && a.LastPulseTrigger != null &&
+                    File.Exists(Path.Combine(dir, "current_state.json"));
+                FaceSession.EndTask(sp);
+                FaceState b = FaceSession.LoadState(sp);
+                bool cleared = b != null && string.IsNullOrEmpty(b.ActiveTask);
+                Console.WriteLine("state_file=" + File.Exists(Path.Combine(dir, "current_state.json")) +
+                    " focus=" + (a == null ? "null" : a.CurrentFocus) +
+                    " active=" + (a == null ? "null" : a.ActiveTask) +
+                    " intents=" + (a == null || a.OpenIntents == null ? -1 : a.OpenIntents.Count));
+                Console.WriteLine(persisted && cleared ? "S0 STATE: PASS" : "S0 STATE: FAIL");
+                return persisted && cleared ? 0 : 1;
+            }
+            finally { try { Directory.Delete(dir, true); } catch { } }
+        }
         if (args != null && Array.IndexOf(args, "--session-test") >= 0)
         {
             string dir = Path.Combine(AppContext.BaseDirectory, "_session-test-" + Guid.NewGuid().ToString("N"));

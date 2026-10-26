@@ -384,6 +384,12 @@ namespace AhzScribe.Face
             catch { }
         }
 
+        static string StopPath()
+        {
+            string f = Environment.GetEnvironmentVariable("AHZ_STOP_FILE");
+            if (!string.IsNullOrEmpty(f)) return f;
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AhzScribe", "state", "EMERGENCY_STOP");
+        }
         static string Cut(string s, int n)
         {
             if (string.IsNullOrEmpty(s)) return "";
@@ -522,17 +528,40 @@ namespace AhzScribe.Face
             FaceSession.SetFocus(_sessionPath, text);
             UpdateTitle(text);
             AppendChat("你", text, "chat");
+            if (text == "/stop")
+            {
+                string f = StopPath();
+                Directory.CreateDirectory(Path.GetDirectoryName(f));
+                File.WriteAllText(f, DateTime.Now.ToString("o"));
+                _pulse.Stop();
+                AppendChat("Ahz", "EMERGENCY_STOP 已启用。删除 " + f + " 或发 /resume 恢复。", "chat");
+                return;
+            }
+            if (text == "/resume")
+            {
+                try { File.Delete(StopPath()); } catch { }
+                _pulse.Start(60000);
+                AppendChat("Ahz", "已恢复脉冲。", "chat");
+                return;
+            }
+            if (File.Exists(StopPath()))
+            {
+                AppendChat("Ahz", "EMERGENCY_STOP 生效中。发 /resume 恢复。", "chat");
+                return;
+            }
             if (text.StartsWith("/intent ", StringComparison.Ordinal))
             {
                 string body = text.Substring(8).Trim();
                 if (body.Length == 0) { AppendChat("Ahz", "用法：/intent <要提醒的事>", "chat"); return; }
-                _memory.RememberAsync(new MemoryItem { Kind = "intent", Key = "intent:" + Guid.NewGuid().ToString("N"), Value = body, Summary = "intent" }, CancellationToken.None).GetAwaiter().GetResult();
+                OpenIntent oi = FaceSession.AddIntent(_sessionPath, body, "");
+                _memory.RememberAsync(new MemoryItem { Kind = "intent", Key = oi.Id, Value = body, Summary = "intent" }, CancellationToken.None).GetAwaiter().GetResult();
                 AppendChat("Ahz", "已记下意图：" + body + "\n下次脉冲会提醒（安静时段 23:00–08:00 不提醒）", "chat");
                 RenderMemory();
                 return;
             }
             if (text == "/pulse")
             {
+                FaceSession.SetPulseTrigger(_sessionPath, "timer", "manual /pulse");
                 DateTime saved = _pulseBody.LastUserAt;
                 _pulseBody.LastUserAt = DateTime.UtcNow.AddSeconds(-701);
                 try
@@ -545,7 +574,7 @@ namespace AhzScribe.Face
             }
             if (text == "/help")
             {
-                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/intent <事>  记一个提醒意图\n/pulse  立即执行一次脉冲\n/help  本帮助", "chat");
+                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/intent <事>  记一个提醒意图\n/pulse  立即执行一次脉冲\n/stop  全局急停\n/resume  恢复\n/help  本帮助", "chat");
                 return;
             }
             if (text == "/episode")
@@ -569,9 +598,12 @@ namespace AhzScribe.Face
                 AppendChat("Ahz", hits.Count == 0 ? "没有命中记忆" : string.Join("\n", hits.Select(x => "[" + x.Kind + "] " + x.Key + " = " + x.Value)), "chat");
                 return;
             }
+            bool taskStarted = false;
             _send.Enabled = false;
             try
             {
+                FaceSession.BeginTask(_sessionPath, text);
+                taskStarted = true;
                 _host.Approval = delegate(BrainToolCall call, CancellationToken ct)
                 {
                     using (var dlg = new ApprovalForm("工具审批：" + (call.Tool ?? ""), DescribeArgs(call)))
@@ -584,7 +616,7 @@ namespace AhzScribe.Face
             UpdateStatus();
             }
             catch (Exception ex) { Append("错误：" + ex.Message); }
-            finally { _send.Enabled = true; _input.Focus(); }
+            finally { if (taskStarted) FaceSession.EndTask(_sessionPath); _send.Enabled = true; _input.Focus(); }
         }
 
         static string DescribeArgs(BrainToolCall call)

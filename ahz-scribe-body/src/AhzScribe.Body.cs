@@ -89,6 +89,13 @@ namespace AhzScribe.Body
                 if (request == null) throw new ArgumentException("request is required");
                 if (string.IsNullOrEmpty(request.Tool)) throw new ArgumentException("tool is required");
                 if (request.Args == null) request.Args = new Dictionary<string, object>();
+                if (StopRequested())
+                {
+                    result.Ok = false;
+                    result.Error = "EMERGENCY_STOP";
+                    result.DurationMs = (long)(DateTime.UtcNow - started).TotalMilliseconds;
+                    return result;
+                }
 
                 string auditId = await _audit.AppendAsync(
                     "body_action", request.Tool, "allowed", "",
@@ -126,6 +133,19 @@ namespace AhzScribe.Body
                     default: throw new InvalidOperationException("tool not implemented by body v0: " + request.Tool);
                 }
                 result.Ok = true;
+                if (request.Tool == "rollback_self" && !string.IsNullOrEmpty(request.LinkedAuditId))
+                {
+                    try
+                    {
+                        await _audit.AppendAsync("audit_link", "rolled_back_by", "linked", auditId, "read-only",
+                            new Dictionary<string, object>
+                            {
+                                ["original_audit_id"] = request.LinkedAuditId,
+                                ["rollback_audit_id"] = auditId
+                            }, "rollback reverse link", ct).ConfigureAwait(false);
+                    }
+                    catch { }
+                }
             }
             catch (Exception ex)
             {
@@ -136,6 +156,13 @@ namespace AhzScribe.Body
             return result;
         }
 
+        static bool StopRequested()
+        {
+            string f = Environment.GetEnvironmentVariable("AHZ_STOP_FILE");
+            if (string.IsNullOrEmpty(f))
+                f = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AhzScribe", "state", "EMERGENCY_STOP");
+            return File.Exists(f);
+        }
         string FullPath(ActionRequest r, string key, bool mustExist)
         {
             string rel = r.Args != null && r.Args.ContainsKey(key) ? Convert.ToString(r.Args[key]) : "";
