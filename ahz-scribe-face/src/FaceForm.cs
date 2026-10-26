@@ -23,6 +23,11 @@ namespace AhzScribe.Face
         readonly TextBox _memoryView;
         readonly TextBox _statusView;
         readonly TextBox _auditView;
+        readonly TextBox _pulseView;
+        readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
+        readonly NotifyIcon _tray;
+        readonly System.Windows.Forms.Timer _clockTimer;
+        bool _reallyExit;
         readonly TextBox _memoryFilter;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe, _setBodyData;
         readonly CheckBox _setNoProxy;
@@ -52,6 +57,8 @@ namespace AhzScribe.Face
             Width = 920;
             Height = 640;
             StartPosition = FormStartPosition.CenterScreen;
+            ClientSize = new Size(1000, 520);
+            MinimumSize = new Size(1024, 680);
             BackColor = Color.FromArgb(24, 26, 30);
             ForeColor = Color.FromArgb(220, 224, 230);
 
@@ -150,6 +157,16 @@ namespace AhzScribe.Face
             _auditView.BorderStyle = BorderStyle.None;
             _auditView.Font = new Font("Consolas", 8.5f);
 
+            _pulseView = new TextBox();
+            _pulseView.Multiline = true;
+            _pulseView.ReadOnly = true;
+            _pulseView.ScrollBars = ScrollBars.Vertical;
+            _pulseView.Dock = DockStyle.Fill;
+            _pulseView.BackColor = Color.FromArgb(26, 28, 32);
+            _pulseView.ForeColor = Color.FromArgb(190, 200, 215);
+            _pulseView.BorderStyle = BorderStyle.None;
+            _pulseView.Font = new Font("Consolas", 8.5f);
+
             _memoryFilter = new TextBox();
             _memoryFilter.Dock = DockStyle.Top;
             _memoryFilter.BackColor = Color.FromArgb(38, 41, 48);
@@ -186,6 +203,18 @@ namespace AhzScribe.Face
             tracePanel.Controls.Add(_trace);
             tracePanel.Controls.Add(_traceFilter);
             tracePage.Controls.Add(tracePanel);
+            var pulsePage = new TabPage("脉冲");
+            pulsePage.BackColor = Color.FromArgb(24, 26, 30);
+            var pulsePanel = new Panel();
+            pulsePanel.Dock = DockStyle.Fill;
+            var pulseRefresh = new Button();
+            pulseRefresh.Text = "刷新";
+            pulseRefresh.Dock = DockStyle.Top;
+            pulseRefresh.Height = 28;
+            pulseRefresh.Click += delegate { RenderPulse(); };
+            pulsePanel.Controls.Add(_pulseView);
+            pulsePanel.Controls.Add(pulseRefresh);
+            pulsePage.Controls.Add(pulsePanel);
             var memoryPage = new TabPage("记忆");
             memoryPage.BackColor = Color.FromArgb(24, 26, 30);
             var memoryPanel = new Panel();
@@ -243,6 +272,7 @@ namespace AhzScribe.Face
             table.Controls.Add(save, 1, 6);
             settingsPage.Controls.Add(table);
             _tabs.TabPages.Add(chatPage);
+            _tabs.TabPages.Add(pulsePage);
             _tabs.TabPages.Add(tracePage);
             _tabs.TabPages.Add(memoryPage);
             _tabs.TabPages.Add(settingsPage);
@@ -250,7 +280,7 @@ namespace AhzScribe.Face
             _tabs.TabPages.Add(auditPage);
             _side = new Panel();
             _side.Dock = DockStyle.Left;
-            _side.Width = 168;
+            _side.Width = 260;
             _side.BackColor = Color.FromArgb(18, 20, 24);
             var brand = new Label();
             brand.Text = "AHZ\nSCRIBE";
@@ -260,7 +290,7 @@ namespace AhzScribe.Face
             brand.Font = new Font("Consolas", 13f, FontStyle.Bold);
             brand.ForeColor = Color.FromArgb(100, 160, 255);
             _side.Controls.Add(brand);
-            string[] navNames = { "对话", "轨迹", "记忆", "设置", "状态", "审计" };
+            string[] navNames = { "对话", "脉冲", "轨迹", "记忆", "设置", "状态", "审计" };
             _nav = new Button[navNames.Length];
             for (int i = navNames.Length - 1; i >= 0; i--)
             {
@@ -343,14 +373,80 @@ namespace AhzScribe.Face
             pad.Controls.Add(_input);
             bottom.Controls.Add(pad);
             bottom.Controls.Add(_send);
+            var stopBtn = new Button();
+            stopBtn.Text = "■ 急停";
+            stopBtn.Dock = DockStyle.Right;
+            stopBtn.Width = 84;
+            stopBtn.FlatStyle = FlatStyle.Flat;
+            stopBtn.FlatAppearance.BorderSize = 0;
+            stopBtn.BackColor = Color.FromArgb(196, 43, 28);
+            stopBtn.ForeColor = Color.White;
+            stopBtn.Click += delegate { EmergencyStop(); };
+            var auditBtn = new Button();
+            auditBtn.Text = "审计";
+            auditBtn.Dock = DockStyle.Right;
+            auditBtn.Width = 64;
+            auditBtn.FlatStyle = FlatStyle.Flat;
+            auditBtn.FlatAppearance.BorderSize = 0;
+            auditBtn.BackColor = Color.FromArgb(45, 48, 54);
+            auditBtn.ForeColor = Color.White;
+            auditBtn.Click += delegate { _tabs.SelectedIndex = 6; UpdateNav(); };
+            bottom.Controls.Add(stopBtn);
+            bottom.Controls.Add(auditBtn);
 
+
+            var top = new Panel();
+            top.Dock = DockStyle.Top;
+            top.Height = 32;
+            top.BackColor = Color.FromArgb(30, 30, 30);
+            _topDot = new Label(); _topDot.Text = "●"; _topDot.AutoSize = false; _topDot.Width = 22; _topDot.Dock = DockStyle.Left; _topDot.TextAlign = ContentAlignment.MiddleCenter; _topDot.ForeColor = Color.FromArgb(0, 122, 204); _topDot.Font = new Font("Segoe UI", 10f);
+            _topIdle = new Label(); _topIdle.Dock = DockStyle.Left; _topIdle.Width = 140; _topIdle.TextAlign = ContentAlignment.MiddleLeft; _topIdle.ForeColor = Color.FromArgb(204, 204, 204); _topIdle.Font = new Font("Microsoft YaHei UI", 9f);
+            _topFore = new Label(); _topFore.Dock = DockStyle.Left; _topFore.Width = 300; _topFore.TextAlign = ContentAlignment.MiddleLeft; _topFore.ForeColor = Color.FromArgb(204, 204, 204); _topFore.Font = new Font("Microsoft YaHei UI", 9f);
+            _topDisk = new Label(); _topDisk.Dock = DockStyle.Right; _topDisk.Width = 150; _topDisk.TextAlign = ContentAlignment.MiddleRight; _topDisk.ForeColor = Color.FromArgb(204, 204, 204); _topDisk.Font = new Font("Consolas", 9f);
+            _topClock = new Label(); _topClock.Dock = DockStyle.Right; _topClock.Width = 90; _topClock.TextAlign = ContentAlignment.MiddleRight; _topClock.ForeColor = Color.FromArgb(204, 204, 204); _topClock.Font = new Font("Consolas", 9f);
+            top.Controls.Add(_topIdle); top.Controls.Add(_topFore); top.Controls.Add(_topDisk); top.Controls.Add(_topClock); top.Controls.Add(_topDot);
 
             var main = new Panel();
             main.Dock = DockStyle.Fill;
             main.Controls.Add(_tabs);
             main.Controls.Add(_side);
-            Controls.Add(main);
-            Controls.Add(bottom);
+            var root = new TableLayoutPanel();
+            root.Dock = DockStyle.Fill;
+            root.ColumnCount = 1;
+            root.RowCount = 3;
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 120));
+            root.Controls.Add(top, 0, 0);
+            root.Controls.Add(main, 0, 1);
+            root.Controls.Add(bottom, 0, 2);
+            Controls.Add(root);
+
+            _clockTimer = new System.Windows.Forms.Timer();
+            _clockTimer.Interval = 1000;
+            _clockTimer.Tick += delegate { _topClock.Text = DateTime.Now.ToString("HH:mm:ss"); };
+            _clockTimer.Start();
+
+            _tray = new NotifyIcon();
+            _tray.Icon = SystemIcons.Application;
+            _tray.Text = "Ahz Scribe";
+            _tray.Visible = true;
+            var trayMenu = new ContextMenuStrip();
+            trayMenu.Items.Add("打开 Ahz Scribe", null, delegate { Show(); WindowState = FormWindowState.Normal; Activate(); });
+            trayMenu.Items.Add(new ToolStripSeparator());
+            trayMenu.Items.Add("查看审计", null, delegate { Show(); _tabs.SelectedIndex = 6; UpdateNav(); });
+            trayMenu.Items.Add("急停", null, delegate { EmergencyStop(); });
+            trayMenu.Items.Add(new ToolStripSeparator());
+            trayMenu.Items.Add("退出", null, delegate { _reallyExit = true; _tray.Visible = false; Close(); });
+            _tray.ContextMenuStrip = trayMenu;
+            _tray.DoubleClick += delegate { Show(); WindowState = FormWindowState.Normal; Activate(); };
+            FormClosing += delegate(object s, FormClosingEventArgs e)
+            {
+                if (!_reallyExit) { e.Cancel = true; Hide(); }
+            };
+            Resize += delegate { if (WindowState == FormWindowState.Minimized) Hide(); };
+            top.BringToFront();
+            bottom.BringToFront();
 
             Append("face v0 · model=" + _modelName);
             Append("输入问题；/tool 前缀让模型使用工具。危险操作会弹确认框。");
@@ -642,6 +738,30 @@ namespace AhzScribe.Face
             }
             catch (Exception ex) { _auditView.Text = ex.Message; }
         }
+        void RenderPulse()
+        {
+            try
+            {
+                string p = Path.Combine(_dataDir, "pulse.log");
+                if (!File.Exists(p)) { _pulseView.Text = "没有脉冲记录"; return; }
+                var lines = File.ReadLines(p).Reverse().Take(120).Reverse().ToList();
+                _pulseView.Text = string.Join(Environment.NewLine, lines.ToArray());
+            }
+            catch (Exception ex) { _pulseView.Text = ex.Message; }
+        }
+
+        void EmergencyStop()
+        {
+            try
+            {
+                string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AhzScribe", "state");
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(Path.Combine(dir, "EMERGENCY_STOP"), DateTime.Now.ToString("o"), new UTF8Encoding(false));
+                AppendChat("Ahz", "已急停，所有脉冲停止", "error");
+                if (_topDot != null) _topDot.ForeColor = Color.FromArgb(196, 43, 28);
+            }
+            catch (Exception ex) { AppendChat("Ahz", "急停失败：" + ex.Message, "error"); }
+        }
         void UpdateStatus()
         {
             try
@@ -649,6 +769,16 @@ namespace AhzScribe.Face
                 if (InvokeRequired) { BeginInvoke(new Action(UpdateStatus)); return; }
                 FaceState st = FaceSession.LoadState(_sessionPath);
                 BodyStatus b = _sensor == null ? new BodyStatus() : _sensor.Snapshot();
+                if (_topIdle != null)
+                {
+                    string fore = b.ForegroundApp ?? ""; if (fore.Length > 26) fore = fore.Substring(0, 26) + "…";
+                    _topIdle.Text = " 空闲 " + (b.IdleSeconds / 60) + " 分";
+                    _topFore.Text = " 前台 " + fore;
+                    _topDisk.Text = "磁盘 " + b.DiskFreeGb.ToString("F0") + "G ";
+                    string em = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AhzScribe", "state", "EMERGENCY_STOP");
+                    _topDot.ForeColor = File.Exists(em) ? Color.FromArgb(196, 43, 28) : (b.AgentProcessAlive ? Color.FromArgb(0, 122, 204) : Color.FromArgb(128, 128, 128));
+                    if (_tray != null) _tray.Text = "Ahz Scribe · " + (b.AgentProcessAlive ? "运行中" : "休眠");
+                }
                 int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
                 var sb = new StringBuilder();
                 sb.AppendLine("episode     " + (st == null ? "-" : st.CurrentEpisode));
