@@ -20,6 +20,7 @@ namespace AhzScribe.Face
         readonly TextBox _traceFilter;
         readonly StringBuilder _traceRaw;
         readonly TextBox _memoryView;
+        readonly TextBox _statusView;
         readonly TextBox _memoryFilter;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe;
         readonly CheckBox _setNoProxy;
@@ -127,6 +128,16 @@ namespace AhzScribe.Face
             _memoryView.BorderStyle = BorderStyle.None;
             _memoryView.Font = new Font("Consolas", 9f);
 
+            _statusView = new TextBox();
+            _statusView.Multiline = true;
+            _statusView.ReadOnly = true;
+            _statusView.ScrollBars = ScrollBars.Vertical;
+            _statusView.Dock = DockStyle.Fill;
+            _statusView.BackColor = Color.FromArgb(26, 28, 32);
+            _statusView.ForeColor = Color.FromArgb(190, 200, 215);
+            _statusView.BorderStyle = BorderStyle.None;
+            _statusView.Font = new Font("Consolas", 9f);
+
             _memoryFilter = new TextBox();
             _memoryFilter.Dock = DockStyle.Top;
             _memoryFilter.BackColor = Color.FromArgb(38, 41, 48);
@@ -168,6 +179,9 @@ namespace AhzScribe.Face
             memoryPanel.Controls.Add(_memoryView);
             memoryPanel.Controls.Add(_memoryFilter);
             memoryPage.Controls.Add(memoryPanel);
+            var statusPage = new TabPage("状态");
+            statusPage.BackColor = Color.FromArgb(24, 26, 30);
+            statusPage.Controls.Add(_statusView);
             var settingsPage = new TabPage("设置");
             settingsPage.BackColor = Color.FromArgb(24, 26, 30);
             var table = new TableLayoutPanel();
@@ -203,6 +217,7 @@ namespace AhzScribe.Face
             _tabs.TabPages.Add(tracePage);
             _tabs.TabPages.Add(memoryPage);
             _tabs.TabPages.Add(settingsPage);
+            _tabs.TabPages.Add(statusPage);
             _side = new Panel();
             _side.Dock = DockStyle.Left;
             _side.Width = 168;
@@ -215,7 +230,7 @@ namespace AhzScribe.Face
             brand.Font = new Font("Consolas", 13f, FontStyle.Bold);
             brand.ForeColor = Color.FromArgb(100, 160, 255);
             _side.Controls.Add(brand);
-            string[] navNames = { "对话", "轨迹", "记忆", "设置" };
+            string[] navNames = { "对话", "轨迹", "记忆", "设置", "状态" };
             _nav = new Button[navNames.Length];
             for (int i = navNames.Length - 1; i >= 0; i--)
             {
@@ -321,6 +336,7 @@ namespace AhzScribe.Face
             UpdateStatus();
             FaceState state = FaceSession.LoadState(_sessionPath);
             if (state != null) UpdateTitle(state.CurrentFocus);
+            UpdateStatus();
         }
 
         protected override void OnShown(EventArgs e)
@@ -484,17 +500,6 @@ namespace AhzScribe.Face
             b.Margin = new Padding(0, 4, 0, 4);
             return b;
         }
-        void UpdateStatus()
-        {
-            try
-            {
-                FaceState st = FaceSession.LoadState(_sessionPath);
-                int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
-                string ep = st == null || string.IsNullOrEmpty(st.CurrentEpisode) ? "-" : st.CurrentEpisode;
-                _status.Text = "episode " + ep + "   memory " + mem + "   body " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body");
-            }
-            catch { }
-        }
         bool AllowProactive()
         {
             FaceState st = FaceSession.LoadState(_sessionPath);
@@ -561,6 +566,7 @@ namespace AhzScribe.Face
                 string path = Path.Combine(_dataDir, "body_state.json");
                 File.WriteAllText(path, JsonSerializer.Serialize(s), new UTF8Encoding(false));
                 _host.BodySummary = _sensor.Summary(s);
+                UpdateStatus();
             }
             catch { }
         }
@@ -586,6 +592,28 @@ namespace AhzScribe.Face
                 _output.ScrollToCaret();
                 _output.Focus();
             }
+        }
+        void UpdateStatus()
+        {
+            try
+            {
+                if (InvokeRequired) { BeginInvoke(new Action(UpdateStatus)); return; }
+                FaceState st = FaceSession.LoadState(_sessionPath);
+                BodyStatus b = _sensor == null ? new BodyStatus() : _sensor.Snapshot();
+                int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
+                var sb = new StringBuilder();
+                sb.AppendLine("episode     " + (st == null ? "-" : st.CurrentEpisode));
+                sb.AppendLine("messages    " + (st == null ? 0 : st.MessageCount));
+                sb.AppendLine("focus       " + (st == null ? "" : st.CurrentFocus));
+                sb.AppendLine("active_task " + (st == null ? "" : st.ActiveTask));
+                sb.AppendLine("intents     " + (st == null || st.OpenIntents == null ? 0 : st.OpenIntents.Count));
+                sb.AppendLine("memory      " + mem);
+                sb.AppendLine("pulse       " + (st == null || st.LastPulseTrigger == null ? "-" : st.LastPulseTrigger.Type + " / " + st.LastPulseTrigger.ReceivedAt));
+                sb.AppendLine();
+                sb.AppendLine(_sensor == null ? "" : _sensor.Summary(b));
+                _statusView.Text = sb.ToString();
+            }
+            catch { }
         }
         void UpdateNav()
         {
