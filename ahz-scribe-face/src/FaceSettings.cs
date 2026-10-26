@@ -11,6 +11,7 @@ namespace AhzScribe.Face
         public string Model { get; set; } = "deepseek-v4-pro";
         public string Workspace { get; set; } = "";
         public string BodyPipe { get; set; } = "ahz-scribe-body";
+        public string BodyData { get; set; } = "";
         public bool ModelNoProxy { get; set; }
 
         public static FaceSettings Load(string dataDir)
@@ -32,7 +33,8 @@ namespace AhzScribe.Face
                 BaseUrl = Environment.GetEnvironmentVariable("AHZ_MODEL_BASE") ?? "https://api.deepseek.com",
                 Model = Environment.GetEnvironmentVariable("AHZ_MODEL_NAME") ?? "deepseek-v4-pro",
                 Workspace = Environment.GetEnvironmentVariable("AHZ_WORKSPACE") ?? "",
-                BodyPipe = Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body"
+                BodyPipe = Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body",
+                BodyData = Environment.GetEnvironmentVariable("AHZ_BODY_DATA") ?? ""
             };
         }
 

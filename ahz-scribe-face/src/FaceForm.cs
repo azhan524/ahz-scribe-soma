@@ -22,7 +22,7 @@ namespace AhzScribe.Face
         readonly TextBox _memoryView;
         readonly TextBox _statusView;
         readonly TextBox _memoryFilter;
-        readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe;
+        readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe, _setBodyData;
         readonly CheckBox _setNoProxy;
         readonly TabControl _tabs;
         readonly Label _status;
@@ -150,6 +150,8 @@ namespace AhzScribe.Face
             _setModel = MakeSettingBox(_settings.Model);
             _setWorkspace = MakeSettingBox(_settings.Workspace);
             _setPipe = MakeSettingBox(_settings.BodyPipe);
+            _setBodyData = MakeSettingBox(_settings.BodyData);
+            _setBodyData.PlaceholderText = "body 数据目录（读审计用）";
             _setNoProxy = new CheckBox();
             _setNoProxy.Text = "模型直连（不使用系统代理）";
             _setNoProxy.ForeColor = Color.FromArgb(200, 210, 220);
@@ -190,8 +192,9 @@ namespace AhzScribe.Face
             table.ColumnCount = 2;
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            table.RowCount = 6;
+            table.RowCount = 7;
             for (int i = 0; i < 4; i++) table.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+            table.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
             table.Controls.Add(new Label { Text = "模型 Base URL", ForeColor = Color.FromArgb(200, 210, 220), AutoSize = true }, 0, 0);
@@ -211,7 +214,9 @@ namespace AhzScribe.Face
             save.ForeColor = Color.White;
             save.Click += delegate { SaveSettings(); };
             table.Controls.Add(_setNoProxy, 1, 4);
-            table.Controls.Add(save, 1, 5);
+            table.Controls.Add(new Label { Text = "body 数据目录", ForeColor = Color.FromArgb(200, 210, 220), AutoSize = true }, 0, 5);
+            table.Controls.Add(_setBodyData, 1, 5);
+            table.Controls.Add(save, 1, 6);
             settingsPage.Controls.Add(table);
             _tabs.TabPages.Add(chatPage);
             _tabs.TabPages.Add(tracePage);
@@ -648,7 +653,7 @@ namespace AhzScribe.Face
         }
         string AuditPath()
         {
-            string data = Environment.GetEnvironmentVariable("AHZ_BODY_DATA");
+            string data = !string.IsNullOrEmpty(_settings.BodyData) ? _settings.BodyData : Environment.GetEnvironmentVariable("AHZ_BODY_DATA");
             if (!string.IsNullOrEmpty(data)) return Path.Combine(data, "audit.jsonl");
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AhzScribe", "body", "audit.jsonl");
         }
@@ -701,6 +706,7 @@ namespace AhzScribe.Face
             _settings.Model = _setModel.Text.Trim();
             _settings.Workspace = _setWorkspace.Text.Trim();
             _settings.BodyPipe = _setPipe.Text.Trim();
+            _settings.BodyData = _setBodyData.Text.Trim();
             _settings.ModelNoProxy = _setNoProxy.Checked;
             if (_setNoProxy.Checked) Environment.SetEnvironmentVariable("AHZ_MODEL_NOPROXY", "1");
             else Environment.SetEnvironmentVariable("AHZ_MODEL_NOPROXY", "");
