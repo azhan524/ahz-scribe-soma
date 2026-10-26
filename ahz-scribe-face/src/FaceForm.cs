@@ -15,6 +15,29 @@ using AhzScribe.Contracts;
 
 namespace AhzScribe.Face
 {
+    [System.Runtime.InteropServices.ComVisible(true)]
+    public sealed class FaceUiHost
+    {
+        readonly string _dataDir;
+        public FaceUiHost(string dataDir) { _dataDir = dataDir; }
+        public string QueryPulses(string filter)
+        {
+            string p = Path.Combine(_dataDir, "pulse.log");
+            if (!File.Exists(p)) return "[]";
+            var lines = File.ReadLines(p).Reverse().Take(200).Reverse();
+            var sb = new StringBuilder("[");
+            bool first = true;
+            foreach (string l in lines)
+            {
+                if (!string.IsNullOrEmpty(filter) && l.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                if (!first) sb.Append(',');
+                first = false;
+                sb.Append(System.Text.Json.JsonSerializer.Serialize(l));
+            }
+            sb.Append(']');
+            return sb.ToString();
+        }
+    }
     public sealed class FaceForm : Form
     {
         readonly RichTextBox _output;
