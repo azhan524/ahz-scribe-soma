@@ -173,6 +173,7 @@ namespace AhzScribe.Face
     public sealed class FaceForm : Form
     {
         readonly RichTextBox _output;
+        readonly Label _lastResponse;
         readonly TextBox _trace;
         readonly TextBox _traceFilter;
         readonly StringBuilder _traceRaw;
@@ -392,7 +393,16 @@ namespace AhzScribe.Face
             _tabs.SizeMode = TabSizeMode.Fixed;
             var chatPage = new TabPage("对话");
             chatPage.BackColor = Theme.BgPrimary;
+            _lastResponse = new Label();
+            _lastResponse.Dock = DockStyle.Top;
+            _lastResponse.Height = 22;
+            _lastResponse.TextAlign = ContentAlignment.MiddleRight;
+            _lastResponse.Padding = new Padding(0, 0, 10, 0);
+            _lastResponse.ForeColor = Theme.TextTertiary;
+            _lastResponse.Font = new Font("Microsoft YaHei UI", 8.5f);
+            _lastResponse.Text = "最后响应：—";
             chatPage.Controls.Add(_output);
+            chatPage.Controls.Add(_lastResponse);
             var tracePage = new TabPage("轨迹");
             tracePage.BackColor = Theme.BgPrimary;
             var tracePanel = new Panel();
@@ -854,6 +864,10 @@ namespace AhzScribe.Face
             _output.SelectionColor = Theme.TextPrimary;
             _output.AppendText((m.Text ?? "") + Environment.NewLine + Environment.NewLine);
         }
+        void NoteResponse()
+        {
+            if (_lastResponse != null) _lastResponse.Text = "最后响应：" + DateTime.Now.ToString("HH:mm:ss");
+        }
         void AppendChat(string role, string text, string kind)
         {
             FaceSession.Append(_sessionPath, new FaceMessage { Role = role, Text = text, Kind = kind });
@@ -863,6 +877,7 @@ namespace AhzScribe.Face
             _output.AppendText((text ?? "") + Environment.NewLine + Environment.NewLine);
             _output.SelectionStart = _output.TextLength;
             _output.ScrollToCaret();
+            if (role == "Ahz") NoteResponse();
         }
         void AppendTrace(string text)
         {
