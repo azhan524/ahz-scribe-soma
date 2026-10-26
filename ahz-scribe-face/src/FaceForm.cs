@@ -20,6 +20,8 @@ namespace AhzScribe.Face
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe;
         readonly TabControl _tabs;
         readonly Label _status;
+        readonly Panel _side;
+        readonly Button[] _nav;
         readonly TextBox _input;
         readonly Button _send;
         readonly BrainHost _host;
@@ -100,6 +102,9 @@ namespace AhzScribe.Face
             _tabs = new TabControl();
             _tabs.Dock = DockStyle.Fill;
             _tabs.Font = new Font("Microsoft YaHei UI", 9f);
+            _tabs.Appearance = TabAppearance.FlatButtons;
+            _tabs.ItemSize = new Size(0, 1);
+            _tabs.SizeMode = TabSizeMode.Fixed;
             var chatPage = new TabPage("对话");
             chatPage.BackColor = Color.FromArgb(24, 26, 30);
             chatPage.Controls.Add(_output);
@@ -142,6 +147,40 @@ namespace AhzScribe.Face
             _tabs.TabPages.Add(tracePage);
             _tabs.TabPages.Add(memoryPage);
             _tabs.TabPages.Add(settingsPage);
+            _side = new Panel();
+            _side.Dock = DockStyle.Left;
+            _side.Width = 168;
+            _side.BackColor = Color.FromArgb(18, 20, 24);
+            var brand = new Label();
+            brand.Text = "AHZ\nSCRIBE";
+            brand.Dock = DockStyle.Top;
+            brand.Height = 72;
+            brand.Padding = new Padding(16, 14, 0, 0);
+            brand.Font = new Font("Consolas", 13f, FontStyle.Bold);
+            brand.ForeColor = Color.FromArgb(100, 160, 255);
+            _side.Controls.Add(brand);
+            string[] navNames = { "对话", "轨迹", "记忆", "设置" };
+            _nav = new Button[navNames.Length];
+            for (int i = navNames.Length - 1; i >= 0; i--)
+            {
+                int index = i;
+                var b = new Button();
+                b.Text = navNames[i];
+                b.Dock = DockStyle.Top;
+                b.Height = 46;
+                b.FlatStyle = FlatStyle.Flat;
+                b.FlatAppearance.BorderSize = 0;
+                b.BackColor = Color.FromArgb(18, 20, 24);
+                b.ForeColor = Color.FromArgb(180, 188, 200);
+                b.TextAlign = ContentAlignment.MiddleLeft;
+                b.Padding = new Padding(18, 0, 0, 0);
+                b.Click += delegate { _tabs.SelectedIndex = index; UpdateNav(); };
+                _side.Controls.Add(b);
+                _nav[i] = b;
+            }
+            _side.Controls.Add(brand);
+            _tabs.SelectedIndexChanged += delegate { UpdateNav(); };
+            UpdateNav();
             var bottom = new Panel();
             bottom.Dock = DockStyle.Bottom;
             bottom.Height = 120;
@@ -188,7 +227,11 @@ namespace AhzScribe.Face
             bottom.Controls.Add(_send);
 
 
-            Controls.Add(_tabs);
+            var main = new Panel();
+            main.Dock = DockStyle.Fill;
+            main.Controls.Add(_tabs);
+            main.Controls.Add(_side);
+            Controls.Add(main);
             Controls.Add(bottom);
 
             Append("face v0 · model=" + _modelName);
@@ -331,6 +374,15 @@ namespace AhzScribe.Face
                 _status.Text = "episode " + ep + "   memory " + mem + "   body " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body");
             }
             catch { }
+        }
+        void UpdateNav()
+        {
+            if (_nav == null) return;
+            for (int i = 0; i < _nav.Length; i++)
+            {
+                _nav[i].BackColor = i == _tabs.SelectedIndex ? Color.FromArgb(30, 46, 72) : Color.FromArgb(18, 20, 24);
+                _nav[i].ForeColor = i == _tabs.SelectedIndex ? Color.White : Color.FromArgb(180, 188, 200);
+            }
         }
         void SaveSettings()
         {
