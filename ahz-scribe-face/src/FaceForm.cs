@@ -17,12 +17,15 @@ namespace AhzScribe.Face
         readonly RichTextBox _output;
         readonly TextBox _trace;
         readonly TextBox _memoryView;
+        readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe;
         readonly TabControl _tabs;
         readonly TextBox _input;
         readonly Button _send;
         readonly BrainHost _host;
         readonly string _modelName;
         readonly string _sessionPath;
+        readonly string _dataDir;
+        readonly FaceSettings _settings;
         readonly MemoryStore _memory;
 
         public FaceForm()
@@ -34,10 +37,12 @@ namespace AhzScribe.Face
             BackColor = Color.FromArgb(24, 26, 30);
             ForeColor = Color.FromArgb(220, 224, 230);
 
-            var memoryRoot = Path.Combine(AppContext.BaseDirectory, "_face-data");
-            _sessionPath = Path.Combine(memoryRoot, "sessions.jsonl");
-            Directory.CreateDirectory(memoryRoot);
-            _memory = new MemoryStore(Path.Combine(memoryRoot, "memory.jsonl"));
+            _dataDir = Path.Combine(AppContext.BaseDirectory, "_face-data");
+            _sessionPath = Path.Combine(_dataDir, "sessions.jsonl");
+            Directory.CreateDirectory(_dataDir);
+            _settings = FaceSettings.Load(_dataDir);
+            if (!string.IsNullOrEmpty(_settings.BodyPipe)) Environment.SetEnvironmentVariable("AHZ_BODY_PIPE", _settings.BodyPipe);
+            _memory = new MemoryStore(Path.Combine(_dataDir, "memory.jsonl"));
             _host = new BrainHost(_memory, CreateModel(out _modelName));
             _host.Trace = delegate(string line) { AppendTrace(line); };
             _host.Policy = new SelfIterationPolicy();
@@ -48,7 +53,7 @@ namespace AhzScribe.Face
                 DialogResult r = MessageBox.Show(this, title + "\\n\\n" + change, "批准自我改造？", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
                 if (r == DialogResult.Yes)
                 {
-                    string root = Environment.GetEnvironmentVariable("AHZ_WORKSPACE") ?? "D:\\max-assistant\\models\\ollama\\no_think\\local-agent";
+                    string root = string.IsNullOrEmpty(_settings.Workspace) ? (Environment.GetEnvironmentVariable("AHZ_WORKSPACE") ?? "") : _settings.Workspace;
                     _host.Policy.Begin(root);
                 }
                 return Task.FromResult(r == DialogResult.Yes);
@@ -84,6 +89,9 @@ namespace AhzScribe.Face
             _memoryView.BorderStyle = BorderStyle.None;
             _memoryView.Font = new Font("Consolas", 9f);
 
+            _setBase = new TextBox(); _setModel = new TextBox(); _setWorkspace = new TextBox(); _setPipe = new TextBox();
+            _setBase.Text = _settings.BaseUrl; _setModel.Text = _settings.Model; _setWorkspace.Text = _settings.Workspace; _setPipe.Text = _settings.BodyPipe;
+
             _tabs = new TabControl();
             _tabs.Dock = DockStyle.Fill;
             _tabs.Font = new Font("Microsoft YaHei UI", 9f);
@@ -96,9 +104,39 @@ namespace AhzScribe.Face
             var memoryPage = new TabPage("记忆");
             memoryPage.BackColor = Color.FromArgb(24, 26, 30);
             memoryPage.Controls.Add(_memoryView);
+            var settingsPage = new TabPage("设置");
+            settingsPage.BackColor = Color.FromArgb(24, 26, 30);
+            var table = new TableLayoutPanel();
+            table.Dock = DockStyle.Fill;
+            table.Padding = new Padding(18);
+            table.ColumnCount = 2;
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            table.RowCount = 5;
+            for (int i = 0; i < 4; i++) table.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+            table.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+            table.Controls.Add(new Label { Text = "模型 Base URL", ForeColor = Color.FromArgb(200, 210, 220), AutoSize = true }, 0, 0);
+            table.Controls.Add(_setBase, 1, 0);
+            table.Controls.Add(new Label { Text = "模型名", ForeColor = Color.FromArgb(200, 210, 220), AutoSize = true }, 0, 1);
+            table.Controls.Add(_setModel, 1, 1);
+            table.Controls.Add(new Label { Text = "工作区", ForeColor = Color.FromArgb(200, 210, 220), AutoSize = true }, 0, 2);
+            table.Controls.Add(_setWorkspace, 1, 2);
+            table.Controls.Add(new Label { Text = "body 管道", ForeColor = Color.FromArgb(200, 210, 220), AutoSize = true }, 0, 3);
+            table.Controls.Add(_setPipe, 1, 3);
+            var save = new Button();
+            save.Text = "保存（重启 face 生效）";
+            save.Width = 220;
+            save.FlatStyle = FlatStyle.Flat;
+            save.FlatAppearance.BorderSize = 0;
+            save.BackColor = Color.FromArgb(64, 120, 220);
+            save.ForeColor = Color.White;
+            save.Click += delegate { SaveSettings(); };
+            table.Controls.Add(save, 1, 4);
+            settingsPage.Controls.Add(table);
             _tabs.TabPages.Add(chatPage);
             _tabs.TabPages.Add(tracePage);
             _tabs.TabPages.Add(memoryPage);
+            _tabs.TabPages.Add(settingsPage);
             var bottom = new Panel();
             bottom.Dock = DockStyle.Bottom;
             bottom.Height = 56;
@@ -162,7 +200,7 @@ namespace AhzScribe.Face
             }
             catch { }
         }
-        static IBrainModel CreateModel(out string name)
+        IBrainModel CreateModel(out string name)
         {
             string key = Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY");
             string baseUrl = Environment.GetEnvironmentVariable("AHZ_MODEL_BASE") ?? "https://api.deepseek.com";
@@ -252,6 +290,15 @@ namespace AhzScribe.Face
                 _memoryView.Text = sb.ToString();
             }
             catch { }
+        }
+        void SaveSettings()
+        {
+            _settings.BaseUrl = _setBase.Text.Trim();
+            _settings.Model = _setModel.Text.Trim();
+            _settings.Workspace = _setWorkspace.Text.Trim();
+            _settings.BodyPipe = _setPipe.Text.Trim();
+            _settings.Save(_dataDir);
+            AppendChat("Ahz", "设置已保存，重启 face 后生效", "chat");
         }
         void UpdateTitle(string focus)
         {

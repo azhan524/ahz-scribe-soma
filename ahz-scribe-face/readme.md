@@ -28,7 +28,7 @@ AhzScribe.Face.exe --ui
 
 已实测：`/ask`、`/tool list_dir`、shell 审批拒绝/允许。
 
-窗口有「对话 / 轨迹 / 记忆」三个页；支持 `/remember <kind> <key> <value>` 和 `/memory <query>`；对话用 RichTextBox（TextBox 在 TabPage 下不绘制），工具调用写进轨迹页，最近 30 条记忆写进记忆页。
+窗口有「对话 / 轨迹 / 记忆 / 设置」四个页；支持 `/remember <kind> <key> <value>` 和 `/memory <query>`；设置页保存模型 Base URL / 模型名 / 工作区 / body 管道到 `_face-data/settings.json`，重启生效；对话用 RichTextBox（TextBox 在 TabPage 下不绘制），工具调用写进轨迹页，最近 30 条记忆写进记忆页。
 
 会话与工具轨迹追加写入：
 ```text
