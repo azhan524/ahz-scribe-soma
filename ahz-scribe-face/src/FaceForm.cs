@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Web.WebView2.WinForms;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -24,6 +25,7 @@ namespace AhzScribe.Face
         readonly TextBox _statusView;
         readonly TextBox _auditView;
         readonly TextBox _pulseView;
+        readonly WebView2 _web;
         readonly TextBox _taskView;
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
         readonly NotifyIcon _tray;
@@ -167,6 +169,12 @@ namespace AhzScribe.Face
             _pulseView.ForeColor = Theme.TextPrimary;
             _pulseView.BorderStyle = BorderStyle.None;
             _pulseView.Font = new Font("Consolas", 8.5f);
+            _web = new WebView2();
+            _web.Dock = DockStyle.Fill;
+            _web.BackColor = Theme.BgPrimary;
+            _web.DefaultBackgroundColor = Theme.BgPrimary;
+            _web.CoreWebView2InitializationCompleted += delegate(object s, Microsoft.Web.WebView2.Core.CoreWebView2InitializationCompletedEventArgs e) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), "init success=" + e.IsSuccess + " " + e.InitializationException + "\n"); } catch { } };
+            _web.NavigationCompleted += delegate(object s, Microsoft.Web.WebView2.Core.CoreWebView2NavigationCompletedEventArgs e) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), "nav success=" + e.IsSuccess + " " + e.WebErrorStatus + "\n"); } catch { } };
             _taskView = new TextBox();
             _taskView.Multiline = true;
             _taskView.ReadOnly = true;
@@ -221,7 +229,7 @@ namespace AhzScribe.Face
             pulseRefresh.Dock = DockStyle.Top;
             pulseRefresh.Height = 28;
             pulseRefresh.Click += delegate { RenderPulse(); };
-            pulsePanel.Controls.Add(_pulseView);
+            pulsePanel.Controls.Add(_web);
             pulsePanel.Controls.Add(pulseRefresh);
             pulsePage.Controls.Add(pulsePanel);
             var memoryPage = new TabPage("记忆");
@@ -337,7 +345,7 @@ namespace AhzScribe.Face
             };
             _side.Controls.Add(search);
             _side.Controls.Add(brand);
-            _tabs.SelectedIndexChanged += delegate { UpdateNav(); };
+            _tabs.SelectedIndexChanged += delegate { UpdateNav(); if (_tabs.SelectedIndex == 1) RenderPulse(); };
             UpdateNav();
             var bottom = new Panel();
             bottom.Dock = DockStyle.Bottom;
@@ -749,18 +757,34 @@ namespace AhzScribe.Face
             }
             catch (Exception ex) { _auditView.Text = ex.Message; }
         }
-        void RenderPulse()
+        public void ShowPulse()
+        {
+            Show();
+            _tabs.SelectedIndex = 1;
+            RenderPulse();
+        }
+
+        async void RenderPulse()
         {
             try
             {
                 string p = Path.Combine(_dataDir, "pulse.log");
-                if (!File.Exists(p)) { _pulseView.Text = "没有脉冲记录"; return; }
-                var lines = File.ReadLines(p).Reverse().Take(120).Reverse().ToList();
-                _pulseView.Text = string.Join(Environment.NewLine, lines.ToArray());
+                var lines = new List<string>();
+                if (File.Exists(p)) lines = File.ReadLines(p).Reverse().Take(120).Reverse().ToList();
+                var sb = new StringBuilder();
+                sb.Append("<!doctype html><html><head><meta charset='utf-8'><style>");
+                sb.Append("body{margin:0;padding:12px;background:#1E1E1E;color:#CCCCCC;font:13px 'Microsoft YaHei UI','Segoe UI',sans-serif;}");
+                sb.Append("h2{font:600 14px 'Microsoft YaHei UI';color:#9D9D9D;margin:0 0 10px;}");
+                sb.Append("pre{white-space:pre-wrap;word-break:break-all;margin:0;font:12px Consolas,monospace;line-height:1.5;color:#CCCCCC;}");
+                sb.Append(".empty{color:#808080;font-style:italic;}</style></head><body><h2>脉冲</h2>");
+                if (lines.Count == 0) sb.Append("<div class='empty'>没有脉冲记录</div>");
+                else sb.Append("<pre>").Append(System.Net.WebUtility.HtmlEncode(string.Join("\n", lines.ToArray()))).Append("</pre>");
+                sb.Append("</body></html>");
+                await _web.EnsureCoreWebView2Async(null);
+                _web.NavigateToString(sb.ToString());
             }
             catch (Exception ex) { _pulseView.Text = ex.Message; }
         }
-
         void EmergencyStop()
         {
             try

@@ -74,6 +74,7 @@ internal static class Program
         if (string.IsNullOrEmpty(key)) return new EchoModel();
         return new OpenAiToolModel(new ModelOptions { BaseUrl = baseUrl, Model = model, ApiKey = key });
     }
+    [STAThread]
     public static int Main(string[] args)
     {
         if (args != null && Array.IndexOf(args, "--memory-real") >= 0)
@@ -223,6 +224,16 @@ internal static class Program
                 return ok ? 0 : 1;
             }
             finally { try { Directory.Delete(dir, true); } catch { } }
+        }
+        if (args != null && Array.IndexOf(args, "--ui-pulse") >= 0)
+        {
+            System.Windows.Forms.Application.EnableVisualStyles();
+            System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
+            var f = new AhzScribe.Face.FaceForm();
+            f.Show();
+            f.ShowPulse();
+            System.Windows.Forms.Application.Run(f);
+            return 0;
         }
         if (args != null && Array.IndexOf(args, "--ui") >= 0)
         {
