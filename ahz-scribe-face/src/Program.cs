@@ -102,6 +102,18 @@ internal static class Program
             }
             finally { try { Directory.Delete(dir, true); } catch { } }
         }
+        if (args != null && Array.IndexOf(args, "--proactive-test") >= 0)
+        {
+            var st = new FaceState { ProactiveCount = 2, LastProactiveDate = DateTime.Now.ToString("yyyy-MM-dd") };
+            bool cap = !ProactiveGate.Allow(st, DateTime.Now);
+            var paused = new FaceState { ProactivePausedUntil = DateTime.Now.AddHours(1).ToString("o") };
+            bool pause = !ProactiveGate.Allow(paused, DateTime.Now);
+            var normal = new FaceState { ProactiveCount = 0 };
+            bool ok = cap && pause && ProactiveGate.Allow(normal, DateTime.Now);
+            Console.WriteLine("cap=" + cap + " paused=" + pause);
+            Console.WriteLine(ok ? "PROACTIVE GATE: PASS" : "PROACTIVE GATE: FAIL");
+            return ok ? 0 : 1;
+        }
         if (args != null && Array.IndexOf(args, "--body-test") >= 0)
         {
             var sensor = new BodySensor(Environment.CurrentDirectory);

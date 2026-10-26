@@ -35,6 +35,8 @@ namespace AhzScribe.Face
                 var info = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf(typeof(LASTINPUTINFO)) };
                 if (GetLastInputInfo(ref info))
                     s.IdleSeconds = Math.Max(0, Environment.TickCount - (int)info.dwTime) / 1000;
+                    int forced;
+                    if (int.TryParse(Environment.GetEnvironmentVariable("AHZ_FORCE_IDLE_SECONDS"), out forced) && forced >= 0) s.IdleSeconds = forced;
             }
             catch { }
             try
@@ -46,7 +48,7 @@ namespace AhzScribe.Face
                 s.ForegroundApp = s.ForegroundTitle;
             }
             catch { }
-            try { s.NetworkOnline = NetworkInterface.GetIsNetworkAvailable(); } catch { }
+            try { s.NetworkOnline = Environment.GetEnvironmentVariable("AHZ_FORCE_OFFLINE") != "1" && NetworkInterface.GetIsNetworkAvailable(); } catch { }
             try
             {
                 Process self = Process.GetCurrentProcess();

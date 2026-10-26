@@ -3,6 +3,24 @@ using System.Collections.Generic;
 
 namespace AhzScribe.Face
 {
+    public static class ProactiveGate
+    {
+        public static bool Allow(FaceState st, DateTime now)
+        {
+            if (st == null) return true;
+            if (now.Hour < 8 || now.Hour >= 23) return false;
+            DateTime paused;
+            if (DateTime.TryParse(st.ProactivePausedUntil, out paused) && paused > now) return false;
+            string today = now.ToString("yyyy-MM-dd");
+            if (st.LastProactiveDate != today) { st.LastProactiveDate = today; st.ProactiveCount = 0; }
+            if (st.ProactiveCount >= 2) return false;
+            st.ProactiveCount++;
+            st.LastProactiveAt = now.ToString("o");
+            st.UnansweredProactive++;
+            if (st.UnansweredProactive >= 2) st.ProactivePausedUntil = now.AddHours(24).ToString("o");
+            return true;
+        }
+    }
     public static class ProactivePolicy
     {
         /// <summary>
