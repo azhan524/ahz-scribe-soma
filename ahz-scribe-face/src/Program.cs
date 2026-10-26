@@ -102,6 +102,19 @@ internal static class Program
             }
             finally { try { Directory.Delete(dir, true); } catch { } }
         }
+        if (args != null && Array.IndexOf(args, "--drive-test") >= 0)
+        {
+            var mem = new List<MemoryItem>
+            {
+                new MemoryItem { Kind = "semantic", Key = "a", Value = "x", Status = "disputed" },
+                new MemoryItem { Kind = "semantic", Key = "b", Value = "y", Status = "active" }
+            };
+            DriveGoal g = DriveEngine.Pick(mem);
+            bool ok = g != null && g.Type == "contradiction" && g.Score > 0;
+            Console.WriteLine("drive=" + (g == null ? "null" : g.Type + " " + g.Score.ToString("F2")));
+            Console.WriteLine(ok ? "DRIVE ENGINE: PASS" : "DRIVE ENGINE: FAIL");
+            return ok ? 0 : 1;
+        }
         if (args != null && Array.IndexOf(args, "--pulse-test") >= 0)
         {
             var q = new PulseQueue();

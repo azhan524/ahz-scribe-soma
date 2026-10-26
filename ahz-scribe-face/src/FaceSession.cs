@@ -45,6 +45,7 @@ namespace AhzScribe.Face
         public string ActiveTaskStartedAt { get; set; }
         public List<OpenIntent> OpenIntents { get; set; }
         public PulseTrigger LastPulseTrigger { get; set; }
+        public string LastDriveDate { get; set; }
     }
 
     public static class FaceSession
@@ -124,7 +125,7 @@ namespace AhzScribe.Face
             catch { }
         }
 
-        public static OpenIntent AddIntent(string sessionPath, string text, string dueAt)
+        public static OpenIntent AddIntent(string sessionPath, string text, string dueAt, string source = "user")
         {
             lock (Gate)
             {
@@ -137,7 +138,7 @@ namespace AhzScribe.Face
                     Status = "open",
                     CreatedAt = DateTime.Now.ToString("o"),
                     DueAt = dueAt ?? "",
-                    Source = "user"
+                    Source = source
                 };
                 st.OpenIntents.Add(it);
                 SaveState(sessionPath, st);

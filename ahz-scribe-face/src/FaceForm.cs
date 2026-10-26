@@ -495,6 +495,24 @@ namespace AhzScribe.Face
             }
             catch { }
         }
+        void RunDrive()
+        {
+            try
+            {
+                FaceState st = FaceSession.LoadState(_sessionPath);
+                string today = DateTime.Now.ToString("yyyy-MM-dd");
+                if (st != null && st.LastDriveDate == today) { AppendTrace("[drive] already today"); return; }
+                List<MemoryItem> all = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult();
+                DriveGoal g = DriveEngine.Pick(all);
+                if (g == null) { AppendTrace("[drive] no goal"); return; }
+                FaceSession.AddIntent(_sessionPath, g.Text, "", "drive");
+                FaceState now = FaceSession.LoadState(_sessionPath);
+                if (now != null) { now.LastDriveDate = today; FaceSession.SaveState(_sessionPath, now); }
+                FaceAudit.Append(_dataDir, "drive", g.Type, "proposed", g.Text, g.Reason);
+                AppendTrace("[drive] " + g.Type + " score=" + g.Score.ToString("F2") + " " + g.Text);
+            }
+            catch { }
+        }
         void PulseTick()
         {
             try
@@ -693,6 +711,11 @@ namespace AhzScribe.Face
                 finally { _pulseBody.LastUserAt = saved; }
                 return;
             }
+            if (text == "/drive")
+            {
+                RunDrive();
+                return;
+            }
             if (text == "/extract")
             {
                 ExtractCurrent();
@@ -705,7 +728,7 @@ namespace AhzScribe.Face
             }
             if (text == "/help")
             {
-                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/intent <事>  记一个提醒意图\n/pulse  立即执行一次脉冲\n/extract  提取最近对话记忆\n/audit tail [n]  查看审计\n/audit show <id>  查看一条\n/audit export  导出到 _face-data\n/stop  全局急停\n/resume  恢复\n/help  本帮助", "chat");
+                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/intent <事>  记一个提醒意图\n/pulse  立即执行一次脉冲\n/extract  提取最近对话记忆\n/drive  立即跑一次内驱\n/audit tail [n]  查看审计\n/audit show <id>  查看一条\n/audit export  导出到 _face-data\n/stop  全局急停\n/resume  恢复\n/help  本帮助", "chat");
                 return;
             }
             if (text == "/episode")
