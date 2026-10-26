@@ -15,8 +15,9 @@ namespace AhzScribe.Brain
     public sealed class MemoryExtractor
     {
         readonly IBrainModel _model;
+        readonly Action<string> _log;
 
-        public MemoryExtractor(IBrainModel model) { _model = model; }
+        public MemoryExtractor(IBrainModel model, Action<string> log = null) { _model = model; _log = log; }
 
         public async Task<List<MemoryItem>> ExtractAsync(string transcript, string sourceAuditId, CancellationToken ct)
         {
@@ -26,6 +27,7 @@ namespace AhzScribe.Brain
             try
             {
                 string raw = await _model.CompleteAsync(system, transcript, ct).ConfigureAwait(false);
+                try { _log?.Invoke(raw ?? ""); } catch { }
                 int a = raw.IndexOf('[');
                 int b = raw.LastIndexOf(']');
                 if (a < 0 || b <= a) return result;

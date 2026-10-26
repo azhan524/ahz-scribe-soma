@@ -517,12 +517,14 @@ namespace AhzScribe.Face
             {
                 List<FaceMessage> msgs = FaceSession.Load(_sessionPath, 5000)
                     .Where(x => x.Kind != "tool").ToList();
-                if (msgs.Count > 100) msgs = msgs.Skip(msgs.Count - 100).ToList();
+                if (msgs.Count > 300) msgs = msgs.Skip(msgs.Count - 300).ToList();
                 var sb = new StringBuilder();
                 foreach (FaceMessage m in msgs)
                     sb.AppendLine((m.Role ?? "") + ": " + (m.Text ?? ""));
                 string source = FaceAudit.Append(_dataDir, "memory", "extract", "allowed", "manual /extract", "manual extraction");
-                var ex = new MemoryExtractor(_host.Model);
+                string debugPath = Path.Combine(_dataDir, "extract-debug.log");
+                File.WriteAllText(Path.Combine(_dataDir, "extract-transcript.txt"), sb.ToString(), new UTF8Encoding(false));
+                var ex = new MemoryExtractor(_host.Model, s => { try { File.AppendAllText(debugPath, s + Environment.NewLine); } catch { } });
                 List<MemoryItem> items = ex.ExtractAsync(sb.ToString(), source, CancellationToken.None).GetAwaiter().GetResult();
                 foreach (MemoryItem m in items)
                     _memory.RememberAsync(m, CancellationToken.None).GetAwaiter().GetResult();
