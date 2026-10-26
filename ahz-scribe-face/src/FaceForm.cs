@@ -669,6 +669,12 @@ namespace AhzScribe.Face
 
             Append("face v0 · model=" + _modelName);
             Append("输入问题；/tool 前缀让模型使用工具。危险操作会弹确认框。");
+            string firstRun = Path.Combine(_dataDir, "first_run_tray_hint_shown");
+            if (!File.Exists(firstRun))
+            {
+                AppendChat("Ahz", "关闭窗口后，AhzScribe 会缩到托盘继续运行。托盘图标在任务栏右下角。", "chat");
+                try { File.WriteAllText(firstRun, DateTime.Now.ToString("o"), new UTF8Encoding(false)); } catch { }
+            }
             List<FaceMessage> history = FaceSession.Load(_sessionPath, 200);
             if (history.Count == 0) Append("这是你的连续时间线。没有 /new，也没有会话列表；直接说话就行。");
             foreach (FaceMessage old in history)
