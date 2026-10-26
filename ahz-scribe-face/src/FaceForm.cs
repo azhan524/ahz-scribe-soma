@@ -330,7 +330,7 @@ namespace AhzScribe.Face
             string model = Environment.GetEnvironmentVariable("AHZ_MODEL_NAME") ?? "deepseek-v4-pro";
             name = model;
             if (string.IsNullOrEmpty(key)) return new EchoModel();
-            return new OpenAiToolModel(new ModelOptions { BaseUrl = baseUrl, Model = model, ApiKey = key });
+            return new OpenAiToolModel(new ModelOptions { BaseUrl = baseUrl, Model = model, ApiKey = key, MaxTokens = 4096 });
         }
 
         void Append(string text)
