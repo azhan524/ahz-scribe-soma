@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,14 +26,16 @@ namespace AhzScribe.Face
     public sealed class FacePulseAudit : IAuditSink
     {
         readonly Action<string> _log;
+        readonly string _path;
 
-        public FacePulseAudit(Action<string> log) { _log = log; }
+        public FacePulseAudit(Action<string> log, string path) { _log = log; _path = path; }
 
         public Task<string> AppendAsync(string span, string tool, string decision, string result,
             string tier, Dictionary<string, object> args, string reason, CancellationToken ct)
         {
-            try { _log?.Invoke("[pulse] " + span + " / " + tool + " / " + decision + " / " + reason); }
-            catch { }
+            string line = DateTime.Now.ToString("s") + " pulse " + span + " / " + tool + " / " + decision + " / " + reason;
+            try { _log?.Invoke(line); } catch { }
+            if (!string.IsNullOrEmpty(_path)) { try { File.AppendAllText(_path, line + Environment.NewLine); } catch { } }
             return Task.FromResult(Guid.NewGuid().ToString("N"));
         }
     }
@@ -68,6 +71,11 @@ namespace AhzScribe.Face
             _intents = new IntentPulseDecider(memory);
         }
 
+        static int EnvInt(string name, int fallback)
+        {
+            int v;
+            return int.TryParse(Environment.GetEnvironmentVariable(name), out v) ? v : fallback;
+        }
         public async Task<PulseDecision> DecideAsync(BodyStatus body, List<MemoryItem> memory, CancellationToken ct)
         {
             PulseDecision intent = await _intents.DecideAsync(body, memory, ct).ConfigureAwait(false);
@@ -76,8 +84,10 @@ namespace AhzScribe.Face
             int hour = DateTime.Now.Hour;
             if (hour < 8 || hour >= 23) return intent ?? new PulseDecision { Action = "none", Reason = "quiet_hours" };
             if (body != null && body.ActiveTask) return new PulseDecision { Action = "none", Reason = "active_task" };
-            if (body != null && body.IdleSeconds < 600) return new PulseDecision { Action = "none", Reason = "not_idle" };
-            if ((DateTime.UtcNow - _lastModelCall).TotalMinutes < 30) return new PulseDecision { Action = "none", Reason = "model_cooldown" };
+            int minIdle = EnvInt("AHZ_PULSE_IDLE_SECONDS", 600);
+            if (body != null && body.IdleSeconds < minIdle) return new PulseDecision { Action = "none", Reason = "not_idle" };
+            int cooldownMin = EnvInt("AHZ_PULSE_MODEL_COOLDOWN_MIN", 30);
+            if ((DateTime.UtcNow - _lastModelCall).TotalMinutes < cooldownMin) return new PulseDecision { Action = "none", Reason = "model_cooldown" };
 
             _lastModelCall = DateTime.UtcNow;
             try
@@ -121,6 +131,11 @@ namespace AhzScribe.Face
 
         public IntentPulseDecider(IMemoryStore memory) { _memory = memory; }
 
+        static int EnvInt(string name, int fallback)
+        {
+            int v;
+            return int.TryParse(Environment.GetEnvironmentVariable(name), out v) ? v : fallback;
+        }
         public async Task<PulseDecision> DecideAsync(BodyStatus body, List<MemoryItem> memory, CancellationToken ct)
         {
             int hour = DateTime.Now.Hour;

@@ -33,7 +33,11 @@ namespace AhzScribe.Brain
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (string.IsNullOrWhiteSpace(options.BaseUrl)) throw new ArgumentException("BaseUrl is required");
             _o = options;
-            _http = http ?? new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+            if (http != null) _http = http;
+            else if (Environment.GetEnvironmentVariable("AHZ_MODEL_NOPROXY") == "1")
+                _http = new HttpClient(new HttpClientHandler { UseProxy = false }) { Timeout = TimeSpan.FromSeconds(120) };
+            else
+                _http = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
         }
 
         public async Task<BrainTurn> NextAsync(string system, IReadOnlyList<BrainTurnMessage> history, CancellationToken ct)
