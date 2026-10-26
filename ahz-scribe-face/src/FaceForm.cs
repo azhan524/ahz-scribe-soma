@@ -84,6 +84,7 @@ namespace AhzScribe.Face
         readonly TextBox _pulseView;
         readonly WebView2 _web;
         readonly Panel _htmlHost;
+        readonly Label _stateFocus, _stateIntents, _stateBody, _statePulse, _stateMood;
         readonly TextBox _taskView;
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
         readonly NotifyIcon _tray;
@@ -363,6 +364,21 @@ namespace AhzScribe.Face
             _side.Dock = DockStyle.Left;
             _side.Width = 260;
             _side.BackColor = Theme.BgBase;
+            var statePanel = new Panel();
+            statePanel.Dock = DockStyle.Bottom;
+            statePanel.Height = 220;
+            statePanel.BackColor = Theme.BgSecondary;
+            statePanel.Padding = new Padding(10);
+            _stateFocus = MakeStateLabel();
+            _stateIntents = MakeStateLabel();
+            _stateBody = MakeStateLabel();
+            _statePulse = MakeStateLabel();
+            _stateMood = MakeStateLabel();
+            statePanel.Controls.Add(_stateMood);
+            statePanel.Controls.Add(_statePulse);
+            statePanel.Controls.Add(_stateBody);
+            statePanel.Controls.Add(_stateIntents);
+            statePanel.Controls.Add(_stateFocus);
             var brand = new Label();
             brand.Text = "AHZ\nSCRIBE";
             brand.Dock = DockStyle.Top;
@@ -406,6 +422,7 @@ namespace AhzScribe.Face
                     if (f.ShowDialog(this) == DialogResult.OK && f.SelectedMessage != null) JumpTo(f.SelectedMessage);
             };
             _side.Controls.Add(search);
+            _side.Controls.Add(statePanel);
             _side.Controls.Add(brand);
             _tabs.SelectedIndexChanged += delegate { UpdateNav(); ShowHtmlTab(); };
             UpdateNav();
@@ -823,6 +840,16 @@ namespace AhzScribe.Face
             }
             catch (Exception ex) { _auditView.Text = ex.Message; }
         }
+        static Label MakeStateLabel()
+        {
+            var l = new Label();
+            l.Dock = DockStyle.Top;
+            l.Height = 38;
+            l.ForeColor = Theme.TextPrimary;
+            l.Font = new Font("Microsoft YaHei UI", 9f);
+            l.AutoEllipsis = true;
+            return l;
+        }
         void ShowHtmlTab()
         {
             if (_tabs.SelectedIndex >= 1 && _tabs.SelectedIndex <= 3)
@@ -971,6 +998,16 @@ namespace AhzScribe.Face
                     string em = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AhzScribe", "state", "EMERGENCY_STOP");
                     _topDot.ForeColor = File.Exists(em) ? Theme.DangerButtonBg : (b.AgentProcessAlive ? Theme.StateInfo : Theme.StateNeutral);
                     if (_tray != null) _tray.Text = "Ahz Scribe · " + (b.AgentProcessAlive ? "运行中" : "休眠");
+                }
+                if (_stateFocus != null)
+                {
+                    _stateFocus.Text = "当前焦点\n" + (st == null || string.IsNullOrEmpty(st.CurrentFocus) ? "—" : st.CurrentFocus);
+                    int oi = st == null || st.OpenIntents == null ? 0 : st.OpenIntents.Count(x => x.Status == "open" || x.Status == "monitoring");
+                    string first = st == null || st.OpenIntents == null ? "" : st.OpenIntents.Where(x => x.Status == "open" || x.Status == "monitoring").Select(x => x.Text).FirstOrDefault();
+                    _stateIntents.Text = "未完成意图 " + oi + (string.IsNullOrEmpty(first) ? "" : "\n" + first);
+                    _stateBody.Text = "身体\n空闲 " + (b.IdleSeconds / 60) + " 分 · " + (b.NetworkOnline ? "在线" : "离线");
+                    _statePulse.Text = "最近脉冲\n" + (st == null || st.LastPulseTrigger == null ? "—" : st.LastPulseTrigger.Type + " " + st.LastPulseTrigger.ReceivedAt);
+                    _stateMood.Text = "情绪\n平静";
                 }
                 int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
                 var sb = new StringBuilder();
