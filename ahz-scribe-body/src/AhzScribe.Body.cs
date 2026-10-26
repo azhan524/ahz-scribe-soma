@@ -130,6 +130,7 @@ namespace AhzScribe.Body
                     case "network_fetch": result.Output = NetworkFetch(request, ct); break;
                     case "desktop_list_windows": result.Output = DesktopWindows(); break;
                     case "process_list": result.Output = ProcessList(); break;
+                    case "process_kill": result.Output = ProcessKill(request); break;
                     case "clipboard_get": result.Output = ClipboardGet(); break;
                     case "clipboard_set": result.Output = ClipboardSet(request); break;
                     case "desktop_active_window": result.Output = DesktopActiveWindow(); break;
@@ -399,6 +400,19 @@ namespace AhzScribe.Body
             t.Join();
             if (error != null) throw error;
             return result;
+        }
+        string ProcessKill(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("process_kill requires Full tier and Approved=true");
+            int pid = Convert.ToInt32(r.Args.ContainsKey("pid") ? r.Args["pid"] : 0);
+            if (pid <= 0) throw new ArgumentException("pid is required");
+            if (pid == Process.GetCurrentProcess().Id) throw new InvalidOperationException("refusing to kill body itself");
+            using (Process p = Process.GetProcessById(pid))
+            {
+                p.Kill();
+                return "killed " + pid + " " + p.ProcessName;
+            }
         }
         string ProcessList()
         {

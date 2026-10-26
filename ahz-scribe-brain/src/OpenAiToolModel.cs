@@ -210,6 +210,7 @@ namespace AhzScribe.Brain
             {
                 Fn("desktop_list_windows", "列出可见窗口标题", new { }),
                 Fn("process_list", "列出占用内存最高的进程", new { }),
+                Fn("process_kill", "按 PID 结束进程（必须已批准）", new { pid = "PID" }),
                 Fn("desktop_active_window", "读取前台窗口标题", new { }),
                 Fn("desktop_click", "点击屏幕坐标（必须已批准）", new { x = "x", y = "y" }),
                 Fn("desktop_type", "输入文本（必须已批准）", new { text = "文本" }),
