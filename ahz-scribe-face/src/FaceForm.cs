@@ -21,6 +21,7 @@ namespace AhzScribe.Face
         readonly TextBox _memoryView;
         readonly TextBox _memoryFilter;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe;
+        readonly CheckBox _setNoProxy;
         readonly TabControl _tabs;
         readonly Label _status;
         readonly Panel _side;
@@ -50,6 +51,7 @@ namespace AhzScribe.Face
             Directory.CreateDirectory(_dataDir);
             _settings = FaceSettings.Load(_dataDir);
             if (!string.IsNullOrEmpty(_settings.BodyPipe)) Environment.SetEnvironmentVariable("AHZ_BODY_PIPE", _settings.BodyPipe);
+            if (_settings.ModelNoProxy) Environment.SetEnvironmentVariable("AHZ_MODEL_NOPROXY", "1");
             _memory = new MemoryStore(Path.Combine(_dataDir, "memory.jsonl"));
             _host = new BrainHost(_memory, CreateModel(out _modelName));
             _host.Trace = delegate(string line) { AppendTrace(line); };
@@ -125,6 +127,10 @@ namespace AhzScribe.Face
             _setModel = MakeSettingBox(_settings.Model);
             _setWorkspace = MakeSettingBox(_settings.Workspace);
             _setPipe = MakeSettingBox(_settings.BodyPipe);
+            _setNoProxy = new CheckBox();
+            _setNoProxy.Text = "模型直连（不使用系统代理）";
+            _setNoProxy.ForeColor = Color.FromArgb(200, 210, 220);
+            _setNoProxy.Checked = _settings.ModelNoProxy;
             _setWorkspace.PlaceholderText = "工作区路径；留空则不能自我迭代";
 
             _tabs = new TabControl();
@@ -158,8 +164,9 @@ namespace AhzScribe.Face
             table.ColumnCount = 2;
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            table.RowCount = 5;
+            table.RowCount = 6;
             for (int i = 0; i < 4; i++) table.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+            table.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
             table.Controls.Add(new Label { Text = "模型 Base URL", ForeColor = Color.FromArgb(200, 210, 220), AutoSize = true }, 0, 0);
             table.Controls.Add(_setBase, 1, 0);
@@ -177,7 +184,8 @@ namespace AhzScribe.Face
             save.BackColor = Color.FromArgb(64, 120, 220);
             save.ForeColor = Color.White;
             save.Click += delegate { SaveSettings(); };
-            table.Controls.Add(save, 1, 4);
+            table.Controls.Add(_setNoProxy, 1, 4);
+            table.Controls.Add(save, 1, 5);
             settingsPage.Controls.Add(table);
             _tabs.TabPages.Add(chatPage);
             _tabs.TabPages.Add(tracePage);
@@ -493,6 +501,9 @@ namespace AhzScribe.Face
             _settings.Model = _setModel.Text.Trim();
             _settings.Workspace = _setWorkspace.Text.Trim();
             _settings.BodyPipe = _setPipe.Text.Trim();
+            _settings.ModelNoProxy = _setNoProxy.Checked;
+            if (_setNoProxy.Checked) Environment.SetEnvironmentVariable("AHZ_MODEL_NOPROXY", "1");
+            else Environment.SetEnvironmentVariable("AHZ_MODEL_NOPROXY", "");
             _settings.Save(_dataDir);
             AppendChat("Ahz", "设置已保存，重启 face 后生效" + (string.IsNullOrEmpty(_settings.Workspace) ? "；工作区为空，propose_upgrade 会被拒绝" : ""), "chat");
         }

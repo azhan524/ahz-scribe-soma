@@ -11,6 +11,7 @@ namespace AhzScribe.Face
         public string Model { get; set; } = "deepseek-v4-pro";
         public string Workspace { get; set; } = "";
         public string BodyPipe { get; set; } = "ahz-scribe-body";
+        public bool ModelNoProxy { get; set; }
 
         public static FaceSettings Load(string dataDir)
         {
