@@ -102,6 +102,15 @@ internal static class Program
             }
             finally { try { Directory.Delete(dir, true); } catch { } }
         }
+        if (args != null && Array.IndexOf(args, "--body-test") >= 0)
+        {
+            var sensor = new BodySensor(Environment.CurrentDirectory);
+            BodyStatus s = sensor.Snapshot();
+            bool ok = s != null && s.MemoryMb > 0 && s.DiskFreeGb >= 0 && s.AgentProcessAlive;
+            Console.WriteLine("idle=" + s.IdleSeconds + " mem=" + s.MemoryMb + " disk=" + s.DiskFreeGb + " net=" + s.NetworkOnline);
+            Console.WriteLine(ok ? "S3 BODY: PASS" : "S3 BODY: FAIL");
+            return ok ? 0 : 1;
+        }
         if (args != null && Array.IndexOf(args, "--policy-test") >= 0)
         {
             var mem = new List<MemoryItem> { new MemoryItem { Kind = "semantic", Key = "pref", Value = "用户喜欢蓝鲸" } };
