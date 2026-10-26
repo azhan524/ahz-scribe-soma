@@ -511,6 +511,24 @@ namespace AhzScribe.Face
                 _nav[i].ForeColor = i == _tabs.SelectedIndex ? Color.White : Color.FromArgb(180, 188, 200);
             }
         }
+        void ExtractCurrent()
+        {
+            try
+            {
+                List<FaceMessage> msgs = FaceSession.Load(_sessionPath, 20);
+                var sb = new StringBuilder();
+                foreach (FaceMessage m in msgs)
+                    sb.AppendLine((m.Role ?? "") + ": " + (m.Text ?? ""));
+                string source = FaceAudit.Append(_dataDir, "memory", "extract", "allowed", "manual /extract", "manual extraction");
+                var ex = new MemoryExtractor(_host.Model);
+                List<MemoryItem> items = ex.ExtractAsync(sb.ToString(), source, CancellationToken.None).GetAwaiter().GetResult();
+                foreach (MemoryItem m in items)
+                    _memory.RememberAsync(m, CancellationToken.None).GetAwaiter().GetResult();
+                RenderMemory();
+                AppendChat("Ahz", "提取完成：" + items.Count + " 条，source=" + source, "chat");
+            }
+            catch (Exception ex) { AppendChat("Ahz", "提取失败：" + ex.Message, "chat"); }
+        }
         string AuditPath()
         {
             string data = Environment.GetEnvironmentVariable("AHZ_BODY_DATA");
@@ -631,6 +649,11 @@ namespace AhzScribe.Face
                 finally { _pulseBody.LastUserAt = saved; }
                 return;
             }
+            if (text == "/extract")
+            {
+                ExtractCurrent();
+                return;
+            }
             if (text.StartsWith("/audit", StringComparison.Ordinal))
             {
                 HandleAudit(text.Substring(6).Trim());
@@ -638,7 +661,7 @@ namespace AhzScribe.Face
             }
             if (text == "/help")
             {
-                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/intent <事>  记一个提醒意图\n/pulse  立即执行一次脉冲\n/audit tail [n]  查看审计\n/audit show <id>  查看一条\n/audit export  导出到 _face-data\n/stop  全局急停\n/resume  恢复\n/help  本帮助", "chat");
+                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/intent <事>  记一个提醒意图\n/pulse  立即执行一次脉冲\n/extract  提取最近对话记忆\n/audit tail [n]  查看审计\n/audit show <id>  查看一条\n/audit export  导出到 _face-data\n/stop  全局急停\n/resume  恢复\n/help  本帮助", "chat");
                 return;
             }
             if (text == "/episode")
