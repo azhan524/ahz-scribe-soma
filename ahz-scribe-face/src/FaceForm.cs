@@ -90,8 +90,10 @@ namespace AhzScribe.Face
             _memoryView.BorderStyle = BorderStyle.None;
             _memoryView.Font = new Font("Consolas", 9f);
 
-            _setBase = new TextBox(); _setModel = new TextBox(); _setWorkspace = new TextBox(); _setPipe = new TextBox();
-            _setBase.Text = _settings.BaseUrl; _setModel.Text = _settings.Model; _setWorkspace.Text = _settings.Workspace; _setPipe.Text = _settings.BodyPipe;
+            _setBase = MakeSettingBox(_settings.BaseUrl);
+            _setModel = MakeSettingBox(_settings.Model);
+            _setWorkspace = MakeSettingBox(_settings.Workspace);
+            _setPipe = MakeSettingBox(_settings.BodyPipe);
 
             _tabs = new TabControl();
             _tabs.Dock = DockStyle.Fill;
@@ -172,6 +174,14 @@ namespace AhzScribe.Face
             bottom.Controls.Add(pad);
             bottom.Controls.Add(_send);
 
+            _status = new Label();
+            _status.Dock = DockStyle.Top;
+            _status.Height = 24;
+            _status.BackColor = Color.FromArgb(20, 22, 26);
+            _status.ForeColor = Color.FromArgb(160, 170, 185);
+            _status.Font = new Font("Consolas", 8.5f);
+            _status.Padding = new Padding(10, 4, 4, 0);
+            Controls.Add(_status);
             Controls.Add(_tabs);
             Controls.Add(bottom);
 
@@ -302,6 +312,18 @@ namespace AhzScribe.Face
                 _status.Text = "episode " + ep + "   memory " + mem + "   body " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body");
             }
             catch { }
+        }
+        TextBox MakeSettingBox(string value)
+        {
+            var b = new TextBox();
+            b.Text = value ?? "";
+            b.Dock = DockStyle.Fill;
+            b.BackColor = Color.FromArgb(38, 41, 48);
+            b.ForeColor = Color.White;
+            b.BorderStyle = BorderStyle.FixedSingle;
+            b.Font = new Font("Consolas", 9.5f);
+            b.Margin = new Padding(0, 4, 0, 4);
+            return b;
         }
         void SaveSettings()
         {
