@@ -661,7 +661,18 @@ namespace AhzScribe.Face
             _tray.DoubleClick += delegate { Show(); WindowState = FormWindowState.Normal; Activate(); };
             FormClosing += delegate(object s, FormClosingEventArgs e)
             {
-                if (!_reallyExit) { e.Cancel = true; Hide(); }
+                if (!_reallyExit)
+                {
+                    e.Cancel = true;
+                    string confirm = Path.Combine(_dataDir, "first_close_confirm_shown");
+                    if (!File.Exists(confirm))
+                    {
+                        DialogResult r = MessageBox.Show(this, "关闭后将缩到托盘，后台脉冲继续运行。是否继续？", "Ahz Scribe", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        if (r != DialogResult.Yes) return;
+                        try { File.WriteAllText(confirm, DateTime.Now.ToString("o"), new UTF8Encoding(false)); } catch { }
+                    }
+                    Hide();
+                }
             };
             Resize += delegate { if (WindowState == FormWindowState.Minimized) Hide(); };
             top.BringToFront();
