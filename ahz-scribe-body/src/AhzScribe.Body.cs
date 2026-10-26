@@ -115,6 +115,8 @@ namespace AhzScribe.Body
                     case "network_fetch": result.Output = NetworkFetch(request, ct); break;
                     case "desktop_list_windows": result.Output = DesktopWindows(); break;
                     case "process_list": result.Output = ProcessList(); break;
+                    case "clipboard_get": result.Output = ClipboardGet(); break;
+                    case "clipboard_set": result.Output = ClipboardSet(request); break;
                     case "desktop_active_window": result.Output = DesktopActiveWindow(); break;
                     case "desktop_click": result.Output = DesktopClick(request); break;
                     case "desktop_type": result.Output = DesktopType(request); break;
@@ -307,6 +309,36 @@ namespace AhzScribe.Body
             return string.Join("\n", lines.Take(100).ToArray());
         }
 
+        string ClipboardGet()
+        {
+            return RunSta(() => Clipboard.ContainsText() ? Clipboard.GetText() : "");
+        }
+
+        string ClipboardSet(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("clipboard_set requires Full tier and Approved=true");
+            string text = r.Args.ContainsKey("text") ? Convert.ToString(r.Args["text"]) : "";
+            if (text.Length > 100000) text = text.Substring(0, 100000);
+            RunSta(() => { Clipboard.SetText(text ?? ""); return "ok"; });
+            return "clipboard set";
+        }
+
+        static string RunSta(Func<string> f)
+        {
+            string result = null;
+            Exception error = null;
+            var t = new Thread(delegate()
+            {
+                try { result = f(); }
+                catch (Exception ex) { error = ex; }
+            });
+            t.SetApartmentState(ApartmentState.STA);
+            t.Start();
+            t.Join();
+            if (error != null) throw error;
+            return result;
+        }
         string ProcessList()
         {
             var lines = new List<string>();

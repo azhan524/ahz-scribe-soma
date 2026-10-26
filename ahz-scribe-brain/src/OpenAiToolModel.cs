@@ -197,7 +197,7 @@ namespace AhzScribe.Brain
 
         static PermissionTier TierFor(string tool)
         {
-            if (tool == "read_file" || tool == "list_dir" || tool == "file_info" || tool == "search_text" || tool == "tail_file" || tool == "glob" || tool == "process_list")
+            if (tool == "read_file" || tool == "list_dir" || tool == "file_info" || tool == "search_text" || tool == "tail_file" || tool == "glob" || tool == "process_list" || tool == "clipboard_get")
                 return PermissionTier.ReadOnly;
             if (tool == "write_file" || tool == "edit_file" || tool == "make_dir" || tool == "delete_file" || tool == "copy_file" || tool == "move_file")
                 return PermissionTier.WorkspaceWrite;
@@ -214,6 +214,8 @@ namespace AhzScribe.Brain
                 Fn("desktop_click", "点击屏幕坐标（必须已批准）", new { x = "x", y = "y" }),
                 Fn("desktop_type", "输入文本（必须已批准）", new { text = "文本" }),
                 Fn("desktop_screenshot", "截取主屏到 _screenshots", new { }),
+                Fn("clipboard_get", "读取剪贴板文本", new { }),
+                Fn("clipboard_set", "写入剪贴板文本（必须已批准）", new { text = "文本" }),
                 Fn("desktop_focus_window", "按标题聚焦窗口（必须已批准）", new { title = "标题" }),
                 Fn("desktop_click_window", "按窗口相对坐标点击（必须已批准）", new { title = "标题", x = "x", y = "y" }),
                 Fn("propose_upgrade", "提交自我改造申请，等待用户批准", new { title = "标题", change = "改什么" }),
