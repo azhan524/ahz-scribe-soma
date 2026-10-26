@@ -29,8 +29,40 @@ namespace AhzScribe.Face
     public sealed class FaceUiHost
     {
         readonly string _dataDir;
-        public FaceUiHost(string dataDir) { _dataDir = dataDir; }
+        readonly Action<string> _openAudit;
+        public FaceUiHost(string dataDir, Action<string> openAudit) { _dataDir = dataDir; _openAudit = openAudit; }
 
+        public void OpenAudit(string auditId) { try { if (_openAudit != null) _openAudit(auditId); } catch { } }
+
+        public string QueryMemories(string filter)
+        {
+            string dir = Path.Combine(_dataDir, "..");
+            string sem = Path.Combine(_dataDir, "memory.jsonl");
+            var rows = new List<object>();
+            if (!File.Exists(sem)) return "[]";
+            foreach (string line in File.ReadLines(sem).Reverse().Take(300).Reverse())
+            {
+                if (!string.IsNullOrEmpty(filter) && line.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                try
+                {
+                    using (var doc = System.Text.Json.JsonDocument.Parse(line))
+                    {
+                        var r = doc.RootElement;
+                        rows.Add(new
+                        {
+                            kind = r.TryGetProperty("Kind", out var k) ? k.GetString() : "",
+                            key = r.TryGetProperty("Key", out var key) ? key.GetString() : "",
+                            value = r.TryGetProperty("Value", out var v) ? v.GetString() : "",
+                            status = r.TryGetProperty("Status", out var st) ? st.GetString() : "",
+                            audit = r.TryGetProperty("SourceAuditId", out var a) ? a.GetString() : "",
+                            raw = line
+                        });
+                    }
+                }
+                catch { }
+            }
+            return System.Text.Json.JsonSerializer.Serialize(rows);
+        }
         public string QueryAudit(string filter)
         {
             string path = Environment.GetEnvironmentVariable("AHZ_AUDIT_PATH");
@@ -940,22 +972,22 @@ namespace AhzScribe.Face
         {
             try
             {
-                var mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult();
                 var sb = new StringBuilder();
-                sb.Append("<table><tr><th>kind</th><th>key</th><th>value</th><th>status</th><th>source</th></tr>");
-                foreach (MemoryItem m in mem)
-                {
-                    string cls = string.Equals(m.Status, "disputed", StringComparison.OrdinalIgnoreCase) ? "warn" : "";
-                    sb.Append("<tr><td>").Append(System.Net.WebUtility.HtmlEncode(m.Kind ?? "")).Append("</td><td>").Append(System.Net.WebUtility.HtmlEncode(m.Key ?? "")).Append("</td><td>").Append(System.Net.WebUtility.HtmlEncode(m.Value ?? "")).Append("</td><td class='").Append(cls).Append("'>").Append(System.Net.WebUtility.HtmlEncode(m.Status ?? "")).Append("</td><td>").Append(System.Net.WebUtility.HtmlEncode(m.SourceAuditId ?? "")).Append("</td></tr>");
-                }
-                if (mem.Count == 0) sb.Append("<tr><td colspan='5' class='empty'>没有记忆</td></tr>");
-                sb.Append("</table>");
+                sb.Append("<!doctype html><html><head><meta charset='utf-8'><style>");
+                sb.Append(":root{--bg:").Append(Css(Theme.BgPrimary)).Append(";--bg2:").Append(Css(Theme.BgSecondary)).Append(";--bg3:").Append(Css(Theme.BgTertiary)).Append(";--line:").Append(Css(Theme.BorderSubtle)).Append(";--text:").Append(Css(Theme.TextPrimary)).Append(";--muted:").Append(Css(Theme.TextSecondary)).Append(";--weak:").Append(Css(Theme.TextTertiary)).Append(";--info:").Append(Css(Theme.StateInfo)).Append(";--warning:").Append(Css(Theme.StateWarning)).Append(";}");
+                sb.Append("body{margin:0;background:var(--bg);color:var(--text);font:13px 'Microsoft YaHei UI','Segoe UI',sans-serif;}header{padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;position:sticky;top:0;}header span{color:var(--muted);font:12px 'Microsoft YaHei UI';}header input{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:6px 8px;border-radius:4px;font:12px 'Microsoft YaHei UI';}table{width:100%;border-collapse:collapse;font:12px Consolas,monospace;}th{text-align:left;color:var(--muted);font-weight:normal;background:var(--bg3);padding:6px;}td{border-bottom:1px solid var(--line);padding:6px;vertical-align:top;}tr:hover{background:var(--bg2);}tr.disputed{background:var(--bg3);}tr.disputed td:first-child{border-left:3px solid var(--warning);}a{color:var(--info);text-decoration:none;cursor:pointer;}.empty{color:var(--weak);font-style:italic;padding:18px 12px;}");
+                sb.Append("</style></head><body><header><span>记忆</span><input id='q' placeholder='搜索 key / value'><span id='cnt'></span></header><div id='list'></div>");
+                sb.Append("<script>const KEY='ahzscribe.ui.memory';let rows=[];function esc(s){return String(s==null?'':s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));}");
+                sb.Append("function render(){let q=(document.getElementById('q').value||'').toLowerCase();let list=document.getElementById('list');let n=0;let h='<table><tr><th>kind</th><th>key</th><th>value</th><th>status</th><th>source</th></tr>';rows.forEach(function(r){if(q&&(r.raw||'').toLowerCase().indexOf(q)<0)return;n++;let cls=r.status==='disputed'?'disputed':'';let a=esc(r.audit||'—');h+='<tr class=\"'+cls+'\"><td>'+esc(r.kind)+'</td><td>'+esc(r.key)+'</td><td>'+esc(r.value)+'</td><td>'+esc(r.status)+'</td><td>'+a+'</td></tr>';});h+='</table>';if(n===0)h='<div class=\"empty\">没有匹配的记忆</div>';list.innerHTML=h;document.getElementById('cnt').textContent=n+' 条';}");
+                sb.Append("async function load(){try{rows=JSON.parse(await chrome.webview.hostObjects.host.QueryMemories(''));let saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}document.getElementById('q').value=saved.q||'';render();}catch(e){document.getElementById('list').innerHTML='<div class=\"empty\">'+esc(e)+'</div>';}}");
+                sb.Append("document.getElementById('q').addEventListener('input',function(){render();try{localStorage.setItem(KEY,JSON.stringify({q:this.value}));}catch(e){}});load();");
+                sb.Append("</script></body></html>");
                 await _web.EnsureCoreWebView2Async(null);
-                _web.CoreWebView2.NavigateToString(HtmlPage("记忆", sb.ToString()));
+                try { _web.CoreWebView2.AddHostObjectToScript("host", new FaceUiHost(_dataDir, delegate(string id) { Show(); _tabs.SelectedIndex = 3; ShowHtmlTab(); })); } catch { }
+                _web.CoreWebView2.NavigateToString(sb.ToString());
             }
             catch (Exception ex) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), ex + "\n"); } catch { } }
         }
-
         async void RenderAuditHtml()
         {
             try
@@ -971,7 +1003,7 @@ namespace AhzScribe.Face
                 sb.Append("document.getElementById('q').addEventListener('input',function(){render();try{localStorage.setItem(KEY,JSON.stringify({q:this.value,scroll:document.getElementById('list').scrollTop}));}catch(e){}});load();");
                 sb.Append("</script></body></html>");
                 await _web.EnsureCoreWebView2Async(null);
-                try { _web.CoreWebView2.AddHostObjectToScript("host", new FaceUiHost(_dataDir)); } catch { }
+                try { _web.CoreWebView2.AddHostObjectToScript("host", new FaceUiHost(_dataDir, delegate(string id) { Show(); _tabs.SelectedIndex = 3; ShowHtmlTab(); })); } catch { }
                 _web.CoreWebView2.NavigateToString(sb.ToString());
             }
             catch (Exception ex) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), ex + "\n"); } catch { } }
@@ -1029,7 +1061,7 @@ namespace AhzScribe.Face
                 sb.Append("document.getElementById('q').addEventListener('input',function(){render();try{localStorage.setItem(KEY,JSON.stringify({q:this.value,scroll:document.getElementById('list').scrollTop}));}catch(e){}});document.getElementById('list').addEventListener('scroll',function(){try{localStorage.setItem(KEY,JSON.stringify({q:document.getElementById('q').value,scroll:this.scrollTop}));}catch(e){}},{passive:true});load();");
                 sb.Append("</script></body></html>");
                 await _web.EnsureCoreWebView2Async(null);
-                try { _web.CoreWebView2.AddHostObjectToScript("host", new FaceUiHost(_dataDir)); } catch { }
+                try { _web.CoreWebView2.AddHostObjectToScript("host", new FaceUiHost(_dataDir, delegate(string id) { Show(); _tabs.SelectedIndex = 3; ShowHtmlTab(); })); } catch { }
                 _web.CoreWebView2.NavigateToString(sb.ToString());
             }
             catch (Exception ex) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), ex.ToString() + "\n"); } catch { } }
