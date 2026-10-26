@@ -169,6 +169,7 @@ namespace AhzScribe.Body
                     case "desktop_list_windows": result.Output = DesktopWindows(); break;
                     case "process_list": result.Output = ProcessList(); break;
                     case "process_kill": result.Output = ProcessKill(request); break;
+                    case "build_self": result.Output = BuildSelf(request); break;
                     case "clipboard_get": result.Output = ClipboardGet(); break;
                     case "clipboard_set": result.Output = ClipboardSet(request); break;
                     case "desktop_active_window": result.Output = DesktopActiveWindow(); break;
@@ -438,6 +439,23 @@ namespace AhzScribe.Body
             t.Join();
             if (error != null) throw error;
             return result;
+        }
+        string BuildSelf(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("build_self requires Full tier and Approved=true");
+            string script = Path.Combine(_root, "build.cmd");
+            if (!File.Exists(script)) throw new FileNotFoundException("build.cmd not found in workspace: " + _root);
+            var psi = new ProcessStartInfo("cmd.exe", "/c build.cmd") { WorkingDirectory = _root, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+            using (Process p = Process.Start(psi))
+            {
+                string stdout = p.StandardOutput.ReadToEnd();
+                string stderr = p.StandardError.ReadToEnd();
+                if (!p.WaitForExit(180000)) { try { p.Kill(); } catch { } return "build timeout"; }
+                string all = (stdout + "\n" + stderr).Trim();
+                if (all.Length > 4000) all = all.Substring(all.Length - 4000);
+                return "exit=" + p.ExitCode + "\n" + all;
+            }
         }
         string ProcessKill(ActionRequest r)
         {
