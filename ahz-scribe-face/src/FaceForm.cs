@@ -464,7 +464,31 @@ namespace AhzScribe.Face
             table.Controls.Add(new Label { Text = "body 数据目录", ForeColor = Theme.TextPrimary, AutoSize = true }, 0, 5);
             table.Controls.Add(_setBodyData, 1, 5);
             table.Controls.Add(save, 1, 6);
-            settingsPage.Controls.Add(table);
+            var settingsFlow = new FlowLayoutPanel();
+            settingsFlow.Dock = DockStyle.Fill;
+            settingsFlow.FlowDirection = FlowDirection.TopDown;
+            settingsFlow.WrapContents = false;
+            settingsFlow.AutoScroll = true;
+            settingsFlow.Padding = new Padding(14);
+            settingsFlow.BackColor = Theme.BgPrimary;
+
+            var llmGroup = MakeGroup("LLM");
+            llmGroup.Controls.Add(MakeSettingRow("Base URL", _setBase));
+            llmGroup.Controls.Add(MakeSettingRow("模型名", _setModel));
+            llmGroup.Controls.Add(_setNoProxy);
+
+            var bodyGroup = MakeGroup("身体");
+            bodyGroup.Controls.Add(MakeSettingRow("工作区", _setWorkspace));
+            bodyGroup.Controls.Add(MakeSettingRow("body 管道", _setPipe));
+            bodyGroup.Controls.Add(MakeSettingRow("body 数据目录", _setBodyData));
+
+            var safetyGroup = MakeGroup("安全");
+            safetyGroup.Controls.Add(save);
+
+            settingsFlow.Controls.Add(llmGroup);
+            settingsFlow.Controls.Add(bodyGroup);
+            settingsFlow.Controls.Add(safetyGroup);
+            settingsPage.Controls.Add(settingsFlow);
             var taskPage = new TabPage("任务");
             taskPage.BackColor = Theme.BgPrimary;
             taskPage.Controls.Add(_taskView);
@@ -995,6 +1019,34 @@ namespace AhzScribe.Face
                 _auditView.Text = sb.Length == 0 ? "没有审计记录" : sb.ToString();
             }
             catch (Exception ex) { _auditView.Text = ex.Message; }
+        }
+        static GroupBox MakeGroup(string title)
+        {
+            var g = new GroupBox();
+            g.Text = title;
+            g.ForeColor = Theme.TextSecondary;
+            g.BackColor = Theme.BgSecondary;
+            g.Width = 620;
+            g.Height = 150;
+            g.Padding = new Padding(10);
+            return g;
+        }
+
+        static Panel MakeSettingRow(string label, Control control)
+        {
+            var p = new Panel();
+            p.Dock = DockStyle.Top;
+            p.Height = 32;
+            var l = new Label();
+            l.Text = label;
+            l.Dock = DockStyle.Left;
+            l.Width = 110;
+            l.ForeColor = Theme.TextSecondary;
+            l.TextAlign = ContentAlignment.MiddleLeft;
+            control.Dock = DockStyle.Fill;
+            p.Controls.Add(control);
+            p.Controls.Add(l);
+            return p;
         }
         static Label MakeStateLabel()
         {
