@@ -22,6 +22,7 @@ namespace AhzScribe.Face
         readonly StringBuilder _traceRaw;
         readonly TextBox _memoryView;
         readonly TextBox _statusView;
+        readonly TextBox _auditView;
         readonly TextBox _memoryFilter;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe, _setBodyData;
         readonly CheckBox _setNoProxy;
@@ -139,6 +140,16 @@ namespace AhzScribe.Face
             _statusView.BorderStyle = BorderStyle.None;
             _statusView.Font = new Font("Consolas", 9f);
 
+            _auditView = new TextBox();
+            _auditView.Multiline = true;
+            _auditView.ReadOnly = true;
+            _auditView.ScrollBars = ScrollBars.Vertical;
+            _auditView.Dock = DockStyle.Fill;
+            _auditView.BackColor = Color.FromArgb(26, 28, 32);
+            _auditView.ForeColor = Color.FromArgb(190, 200, 215);
+            _auditView.BorderStyle = BorderStyle.None;
+            _auditView.Font = new Font("Consolas", 8.5f);
+
             _memoryFilter = new TextBox();
             _memoryFilter.Dock = DockStyle.Top;
             _memoryFilter.BackColor = Color.FromArgb(38, 41, 48);
@@ -185,6 +196,18 @@ namespace AhzScribe.Face
             var statusPage = new TabPage("状态");
             statusPage.BackColor = Color.FromArgb(24, 26, 30);
             statusPage.Controls.Add(_statusView);
+            var auditPage = new TabPage("审计");
+            auditPage.BackColor = Color.FromArgb(24, 26, 30);
+            var auditPanel = new Panel();
+            auditPanel.Dock = DockStyle.Fill;
+            var auditRefresh = new Button();
+            auditRefresh.Text = "刷新";
+            auditRefresh.Dock = DockStyle.Top;
+            auditRefresh.Height = 28;
+            auditRefresh.Click += delegate { RenderAudit(); };
+            auditPanel.Controls.Add(_auditView);
+            auditPanel.Controls.Add(auditRefresh);
+            auditPage.Controls.Add(auditPanel);
             var settingsPage = new TabPage("设置");
             settingsPage.BackColor = Color.FromArgb(24, 26, 30);
             var table = new TableLayoutPanel();
@@ -224,6 +247,7 @@ namespace AhzScribe.Face
             _tabs.TabPages.Add(memoryPage);
             _tabs.TabPages.Add(settingsPage);
             _tabs.TabPages.Add(statusPage);
+            _tabs.TabPages.Add(auditPage);
             _side = new Panel();
             _side.Dock = DockStyle.Left;
             _side.Width = 168;
@@ -236,7 +260,7 @@ namespace AhzScribe.Face
             brand.Font = new Font("Consolas", 13f, FontStyle.Bold);
             brand.ForeColor = Color.FromArgb(100, 160, 255);
             _side.Controls.Add(brand);
-            string[] navNames = { "对话", "轨迹", "记忆", "设置", "状态" };
+            string[] navNames = { "对话", "轨迹", "记忆", "设置", "状态", "审计" };
             _nav = new Button[navNames.Length];
             for (int i = navNames.Length - 1; i >= 0; i--)
             {
@@ -604,6 +628,19 @@ namespace AhzScribe.Face
                 _output.ScrollToCaret();
                 _output.Focus();
             }
+        }
+        void RenderAudit()
+        {
+            try
+            {
+                var sb = new StringBuilder();
+                string body = AuditPath();
+                if (File.Exists(body)) foreach (string l in File.ReadLines(body).Reverse().Take(80).Reverse()) sb.AppendLine(l);
+                string face = FaceAudit.PathFor(_dataDir);
+                if (File.Exists(face)) foreach (string l in File.ReadLines(face).Reverse().Take(40).Reverse()) sb.AppendLine(l);
+                _auditView.Text = sb.Length == 0 ? "没有审计记录" : sb.ToString();
+            }
+            catch (Exception ex) { _auditView.Text = ex.Message; }
         }
         void UpdateStatus()
         {
