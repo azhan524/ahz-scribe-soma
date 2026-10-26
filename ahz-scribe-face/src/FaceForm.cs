@@ -186,6 +186,8 @@ namespace AhzScribe.Face
         readonly Label _stateFocus, _stateIntents, _stateBody, _statePulse, _stateMood;
         Panel _hintPanel;
         Icon _trayIcon;
+        readonly System.Windows.Forms.Timer _breathTimer;
+        bool _breathing;
         readonly TextBox _taskView;
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
         readonly NotifyIcon _tray;
@@ -248,7 +250,7 @@ namespace AhzScribe.Face
             _bodyTimer = new System.Threading.Timer(delegate { SampleBody(); }, null, 0, 30000);
             _sensor = new BodySensor(_settings.Workspace);
             _bodyTimer = new System.Threading.Timer(delegate { SampleBody(); }, null, 0, 30000);
-            FormClosed += delegate { _pulse.Dispose(); _bodyTimer.Dispose(); _pulseTimer.Dispose(); };
+            FormClosed += delegate { _pulse.Dispose(); _bodyTimer.Dispose(); _pulseTimer.Dispose(); if (_breathTimer != null) _breathTimer.Stop(); };
             _host.Policy = new SelfIterationPolicy();
             _host.Propose = delegate(BrainToolCall call, CancellationToken ct)
             {
@@ -682,6 +684,15 @@ namespace AhzScribe.Face
             _clockTimer.Interval = 1000;
             _clockTimer.Tick += delegate { _topClock.Text = DateTime.Now.ToString("HH:mm:ss"); };
             _clockTimer.Start();
+            _breathTimer = new System.Windows.Forms.Timer();
+            _breathTimer.Interval = 100;
+            _breathTimer.Tick += delegate
+            {
+                double phase = 0.5 + 0.5 * Math.Sin(DateTime.Now.TimeOfDay.TotalSeconds * Math.PI / 1.25);
+                Color c = Color.FromArgb((int)(Theme.StateInfoDim.R + (Theme.StateInfo.R - Theme.StateInfoDim.R) * phase), (int)(Theme.StateInfoDim.G + (Theme.StateInfo.G - Theme.StateInfoDim.G) * phase), (int)(Theme.StateInfoDim.B + (Theme.StateInfo.B - Theme.StateInfoDim.B) * phase));
+                SetTrayColor(c);
+                if (_topDot != null) _topDot.ForeColor = c;
+            };
 
             _tray = new NotifyIcon();
             _tray.Icon = SystemIcons.Application;
@@ -1106,6 +1117,20 @@ namespace AhzScribe.Face
             l.AutoEllipsis = true;
             return l;
         }
+        void StartBreath()
+        {
+            if (_breathing) return;
+            _breathing = true;
+            _breathTimer.Start();
+        }
+
+        void StopBreath(Color color)
+        {
+            _breathing = false;
+            _breathTimer.Stop();
+            SetTrayColor(color);
+            if (_topDot != null) _topDot.ForeColor = color;
+        }
         void SetTrayColor(Color color)
         {
             try
@@ -1145,8 +1170,9 @@ namespace AhzScribe.Face
                 _topFore.Text = " 前台 " + fore;
                 _topDisk.Text = "磁盘 " + b.DiskFreeGb.ToString("F0") + "G ";
                 string em = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AhzScribe", "state", "EMERGENCY_STOP");
-                _topDot.ForeColor = File.Exists(em) ? Theme.StateDanger : (b.AgentProcessAlive ? Theme.StateInfo : Theme.StateNeutral);
-                SetTrayColor(_topDot.ForeColor);
+                if (File.Exists(em)) StopBreath(Theme.StateDanger);
+                else if (b.AgentProcessAlive) StartBreath();
+                else StopBreath(Theme.StateNeutral);
                 if (_tray != null) _tray.Text = "Ahz Scribe · " + (b.AgentProcessAlive ? "运行中" : "休眠");
             }
             if (_stateFocus != null)
