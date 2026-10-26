@@ -16,6 +16,8 @@ namespace AhzScribe.Face
     {
         readonly RichTextBox _output;
         readonly TextBox _trace;
+        readonly TextBox _traceFilter;
+        readonly StringBuilder _traceRaw;
         readonly TextBox _memoryView;
         readonly TextBox _memoryFilter;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe;
@@ -85,6 +87,15 @@ namespace AhzScribe.Face
             _trace.BorderStyle = BorderStyle.None;
             _trace.Font = new Font("Consolas", 9f);
 
+            _traceRaw = new StringBuilder();
+            _traceFilter = new TextBox();
+            _traceFilter.Dock = DockStyle.Top;
+            _traceFilter.BackColor = Color.FromArgb(38, 41, 48);
+            _traceFilter.ForeColor = Color.White;
+            _traceFilter.BorderStyle = BorderStyle.FixedSingle;
+            _traceFilter.PlaceholderText = "过滤轨迹...";
+            _traceFilter.TextChanged += delegate { RefreshTrace(); };
+
             _memoryView = new TextBox();
             _memoryView.Multiline = true;
             _memoryView.ReadOnly = true;
@@ -120,7 +131,11 @@ namespace AhzScribe.Face
             chatPage.Controls.Add(_output);
             var tracePage = new TabPage("轨迹");
             tracePage.BackColor = Color.FromArgb(24, 26, 30);
-            tracePage.Controls.Add(_trace);
+            var tracePanel = new Panel();
+            tracePanel.Dock = DockStyle.Fill;
+            tracePanel.Controls.Add(_trace);
+            tracePanel.Controls.Add(_traceFilter);
+            tracePage.Controls.Add(tracePanel);
             var memoryPage = new TabPage("记忆");
             memoryPage.BackColor = Color.FromArgb(24, 26, 30);
             var memoryPanel = new Panel();
@@ -352,7 +367,21 @@ namespace AhzScribe.Face
         {
             if (InvokeRequired) { BeginInvoke(new Action<string>(AppendTrace), text); return; }
             FaceSession.Append(_sessionPath, new FaceMessage { Role = "工具", Text = text, Kind = "tool" });
-            _trace.AppendText("[工具] " + text + Environment.NewLine);
+            _traceRaw.AppendLine("[工具] " + text);
+            RefreshTrace();
+        }
+        void RefreshTrace()
+        {
+            string filter = _traceFilter == null ? "" : _traceFilter.Text.Trim();
+            string raw = _traceRaw.ToString();
+            if (filter.Length > 0)
+            {
+                var sb = new StringBuilder();
+                foreach (string line in raw.Split(new[] { Environment.NewLine }, StringSplitOptions.None))
+                    if (line.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0) sb.AppendLine(line);
+                raw = sb.ToString();
+            }
+            _trace.Text = raw;
             _trace.SelectionStart = _trace.TextLength;
             _trace.ScrollToCaret();
         }
