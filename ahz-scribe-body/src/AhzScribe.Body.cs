@@ -6,6 +6,10 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Windows.Forms;
 using FlaUI.Core;
+using Windows.Media.Ocr;
+using Windows.Graphics.Imaging;
+using Windows.Storage;
+using Windows.Storage.Streams;
 using FlaUI.UIA3;
 using FlaUI.Core.AutomationElements;
 using System.Runtime.InteropServices;
@@ -190,6 +194,7 @@ namespace AhzScribe.Body
                     case "desktop_scroll_loop": result.Output = DesktopScrollLoop(request); break;
                     case "desktop_scroll_stop": result.Output = DesktopScrollStop(); break;
                     case "desktop_screenshot": result.Output = DesktopScreenshot(); break;
+                    case "desktop_ocr": result.Output = DesktopOcr(request); break;
                     case "desktop_focus_window": result.Output = DesktopFocus(request); break;
                     case "desktop_window_state": result.Output = DesktopWindowState(request); break;
                     case "desktop_click_window": result.Output = DesktopClickWindow(request); break;
@@ -395,6 +400,22 @@ namespace AhzScribe.Body
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         static extern IntPtr GetForegroundWindow();
 
+        string DesktopOcr(ActionRequest r)
+        {
+            string path = r.Args.ContainsKey("path") ? Convert.ToString(r.Args["path"]) : DesktopScreenshot();
+            if (!Path.IsPathRooted(path)) path = Path.Combine(_root, path.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(path)) throw new FileNotFoundException(path);
+            var file = StorageFile.GetFileFromPathAsync(path).AsTask().GetAwaiter().GetResult();
+            using (IRandomAccessStream stream = file.OpenAsync(FileAccessMode.Read).AsTask().GetAwaiter().GetResult())
+            {
+                BitmapDecoder decoder = BitmapDecoder.CreateAsync(stream).AsTask().GetAwaiter().GetResult();
+                SoftwareBitmap bitmap = decoder.GetSoftwareBitmapAsync().AsTask().GetAwaiter().GetResult();
+                OcrEngine engine = OcrEngine.TryCreateFromUserProfileLanguages();
+                if (engine == null) throw new InvalidOperationException("OCR engine unavailable");
+                OcrResult result = engine.RecognizeAsync(bitmap).AsTask().GetAwaiter().GetResult();
+                return result.Text ?? "";
+            }
+        }
         string DesktopScreenshot()
         {
             Rectangle b = Screen.PrimaryScreen.Bounds;
