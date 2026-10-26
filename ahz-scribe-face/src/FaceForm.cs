@@ -574,10 +574,8 @@ namespace AhzScribe.Face
             {
                 _host.Approval = delegate(BrainToolCall call, CancellationToken ct)
                 {
-                    DialogResult r = MessageBox.Show(this,
-                        "批准执行 " + call.Tool + " ？\n\n" + DescribeArgs(call),
-                        "工具审批", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
-                    return Task.FromResult(r == DialogResult.Yes);
+                    using (var dlg = new ApprovalForm("工具审批：" + (call.Tool ?? ""), DescribeArgs(call)))
+                        return Task.FromResult(dlg.ShowDialog(this) == DialogResult.Yes);
                 };
                 string answer = text.StartsWith("/tool ", StringComparison.Ordinal)
                     ? await _host.RunToolAsync(text.Substring(6), CancellationToken.None)

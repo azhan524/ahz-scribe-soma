@@ -10,7 +10,7 @@ namespace AhzScribe.Face
 
         public ApprovalForm(string title, string change)
         {
-            Text = "批准自我改造？";
+            Text = (title ?? "").StartsWith("工具审批", StringComparison.Ordinal) ? "工具审批" : "批准自我改造？";
             Width = 620;
             Height = 360;
             StartPosition = FormStartPosition.CenterParent;
