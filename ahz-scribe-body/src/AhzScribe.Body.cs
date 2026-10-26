@@ -137,6 +137,7 @@ namespace AhzScribe.Body
                     case "desktop_type": result.Output = DesktopType(request); break;
                     case "desktop_screenshot": result.Output = DesktopScreenshot(); break;
                     case "desktop_focus_window": result.Output = DesktopFocus(request); break;
+                    case "desktop_window_state": result.Output = DesktopWindowState(request); break;
                     case "desktop_click_window": result.Output = DesktopClickWindow(request); break;
                     default: throw new InvalidOperationException("tool not implemented by body v0: " + request.Tool);
                 }
@@ -279,6 +280,7 @@ namespace AhzScribe.Body
         }
         [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hWnd);
         [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+        [DllImport("user32.dll")] static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr w, IntPtr l);
         [StructLayout(LayoutKind.Sequential)]
         struct RECT { public int Left, Top, Right, Bottom; }
         [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
@@ -303,6 +305,24 @@ namespace AhzScribe.Body
             return found;
         }
 
+        string DesktopWindowState(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("desktop_window_state requires Full tier and Approved=true");
+            string title = r.Args.ContainsKey("title") ? Convert.ToString(r.Args["title"]) : "";
+            string action = r.Args.ContainsKey("action") ? Convert.ToString(r.Args["action"]).ToLowerInvariant() : "restore";
+            IntPtr h = FindWindowByTitle(title);
+            if (h == IntPtr.Zero) return "window not found: " + title;
+            switch (action)
+            {
+                case "minimize": ShowWindow(h, 6); break;
+                case "maximize": ShowWindow(h, 3); break;
+                case "restore": ShowWindow(h, 9); break;
+                case "close": PostMessage(h, 0x0010, IntPtr.Zero, IntPtr.Zero); break;
+                default: return "unknown action: " + action;
+            }
+            return action + " " + title;
+        }
         string DesktopFocus(ActionRequest r)
         {
             if (r.Tier != PermissionTier.Full || !r.Approved)

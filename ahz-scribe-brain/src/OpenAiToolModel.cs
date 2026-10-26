@@ -217,6 +217,7 @@ namespace AhzScribe.Brain
                 Fn("clipboard_get", "读取剪贴板文本", new { }),
                 Fn("clipboard_set", "写入剪贴板文本（必须已批准）", new { text = "文本" }),
                 Fn("desktop_focus_window", "按标题聚焦窗口（必须已批准）", new { title = "标题" }),
+                Fn("desktop_window_state", "最小化/最大化/恢复/关闭窗口（必须已批准）", new { title = "标题", action = "minimize|maximize|restore|close" }),
                 Fn("desktop_click_window", "按窗口相对坐标点击（必须已批准）", new { title = "标题", x = "x", y = "y" }),
                 Fn("propose_upgrade", "提交自我改造申请，等待用户批准", new { title = "标题", change = "改什么" }),
                 Fn("read_file", "读取工作区文件", new { path = "相对路径" }),
