@@ -114,6 +114,7 @@ namespace AhzScribe.Body
                     case "glob": result.Output = Glob(request); break;
                     case "network_fetch": result.Output = NetworkFetch(request, ct); break;
                     case "desktop_list_windows": result.Output = DesktopWindows(); break;
+                    case "process_list": result.Output = ProcessList(); break;
                     case "desktop_active_window": result.Output = DesktopActiveWindow(); break;
                     case "desktop_click": result.Output = DesktopClick(request); break;
                     case "desktop_type": result.Output = DesktopType(request); break;
@@ -306,6 +307,16 @@ namespace AhzScribe.Body
             return string.Join("\n", lines.Take(100).ToArray());
         }
 
+        string ProcessList()
+        {
+            var lines = new List<string>();
+            foreach (Process p in Process.GetProcesses().OrderByDescending(x => { try { return x.WorkingSet64; } catch { return 0; } }).Take(100))
+            {
+                try { lines.Add(p.Id + " | " + p.ProcessName + " | " + (p.WorkingSet64 / 1024 / 1024) + " MB"); }
+                catch { }
+            }
+            return string.Join("\n", lines.ToArray());
+        }
         string DesktopActiveWindow()
         {
             IntPtr h = GetForegroundWindow();

@@ -166,7 +166,7 @@ namespace AhzScribe.Brain
 
         static PermissionTier TierFor(string tool)
         {
-            if (tool == "read_file" || tool == "list_dir" || tool == "file_info" || tool == "search_text" || tool == "tail_file" || tool == "glob")
+            if (tool == "read_file" || tool == "list_dir" || tool == "file_info" || tool == "search_text" || tool == "tail_file" || tool == "glob" || tool == "process_list")
                 return PermissionTier.ReadOnly;
             if (tool == "write_file" || tool == "edit_file" || tool == "make_dir" || tool == "delete_file" || tool == "copy_file" || tool == "move_file")
                 return PermissionTier.WorkspaceWrite;
@@ -178,6 +178,7 @@ namespace AhzScribe.Brain
             return new object[]
             {
                 Fn("desktop_list_windows", "列出可见窗口标题", new { }),
+                Fn("process_list", "列出占用内存最高的进程", new { }),
                 Fn("desktop_active_window", "读取前台窗口标题", new { }),
                 Fn("desktop_click", "点击屏幕坐标（必须已批准）", new { x = "x", y = "y" }),
                 Fn("desktop_type", "输入文本（必须已批准）", new { text = "文本" }),
