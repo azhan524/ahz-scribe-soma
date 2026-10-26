@@ -26,6 +26,7 @@ namespace AhzScribe.Face
         readonly TextBox _auditView;
         readonly TextBox _pulseView;
         readonly WebView2 _web;
+        readonly Panel _htmlHost;
         readonly TextBox _taskView;
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
         readonly NotifyIcon _tray;
@@ -173,6 +174,11 @@ namespace AhzScribe.Face
             _web.Dock = DockStyle.Fill;
             _web.BackColor = Theme.BgPrimary;
             _web.DefaultBackgroundColor = Theme.BgPrimary;
+            _htmlHost = new Panel();
+            _htmlHost.Dock = DockStyle.Fill;
+            _htmlHost.Visible = false;
+            _htmlHost.BackColor = Theme.BgPrimary;
+            _htmlHost.Controls.Add(_web);
             _web.CoreWebView2InitializationCompleted += delegate(object s, Microsoft.Web.WebView2.Core.CoreWebView2InitializationCompletedEventArgs e) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), "init success=" + e.IsSuccess + " " + e.InitializationException + "\n"); } catch { } };
             _web.NavigationCompleted += delegate(object s, Microsoft.Web.WebView2.Core.CoreWebView2NavigationCompletedEventArgs e) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), "nav success=" + e.IsSuccess + " " + e.WebErrorStatus + "\n"); } catch { } };
             _taskView = new TextBox();
@@ -229,7 +235,6 @@ namespace AhzScribe.Face
             pulseRefresh.Dock = DockStyle.Top;
             pulseRefresh.Height = 28;
             pulseRefresh.Click += delegate { RenderPulse(); };
-            pulsePanel.Controls.Add(_web);
             pulsePanel.Controls.Add(pulseRefresh);
             pulsePage.Controls.Add(pulsePanel);
             var memoryPage = new TabPage("记忆");
@@ -345,7 +350,7 @@ namespace AhzScribe.Face
             };
             _side.Controls.Add(search);
             _side.Controls.Add(brand);
-            _tabs.SelectedIndexChanged += delegate { UpdateNav(); if (_tabs.SelectedIndex == 1) RenderPulse(); };
+            _tabs.SelectedIndexChanged += delegate { UpdateNav(); ShowHtmlTab(); };
             UpdateNav();
             var bottom = new Panel();
             bottom.Dock = DockStyle.Bottom;
@@ -427,7 +432,11 @@ namespace AhzScribe.Face
 
             var main = new Panel();
             main.Dock = DockStyle.Fill;
-            main.Controls.Add(_tabs);
+            var content = new Panel();
+            content.Dock = DockStyle.Fill;
+            content.Controls.Add(_htmlHost);
+            content.Controls.Add(_tabs);
+            main.Controls.Add(content);
             main.Controls.Add(_side);
             var root = new TableLayoutPanel();
             root.Dock = DockStyle.Fill;
@@ -756,6 +765,68 @@ namespace AhzScribe.Face
                 _auditView.Text = sb.Length == 0 ? "没有审计记录" : sb.ToString();
             }
             catch (Exception ex) { _auditView.Text = ex.Message; }
+        }
+        void ShowHtmlTab()
+        {
+            if (_tabs.SelectedIndex >= 1 && _tabs.SelectedIndex <= 3)
+            {
+                _htmlHost.Visible = true;
+                _htmlHost.BringToFront();
+                if (_tabs.SelectedIndex == 1) RenderPulse();
+                else if (_tabs.SelectedIndex == 2) RenderMemoryHtml();
+                else RenderAuditHtml();
+            }
+            else _htmlHost.Visible = false;
+        }
+
+        string HtmlPage(string title, string body)
+        {
+            var sb = new StringBuilder();
+            sb.Append("<!doctype html><html><head><meta charset='utf-8'><style>");
+            sb.Append(":root{--bg:").Append(Css(Theme.BgPrimary)).Append(";--bg2:").Append(Css(Theme.BgSecondary)).Append(";--bg3:").Append(Css(Theme.BgTertiary)).Append(";--line:").Append(Css(Theme.BorderSubtle)).Append(";--text:").Append(Css(Theme.TextPrimary)).Append(";--muted:").Append(Css(Theme.TextSecondary)).Append(";--weak:").Append(Css(Theme.TextTertiary)).Append(";--info:").Append(Css(Theme.StateInfo)).Append(";--success:").Append(Css(Theme.StateSuccess)).Append(";--danger:").Append(Css(Theme.StateDanger)).Append(";--warning:").Append(Css(Theme.StateWarning)).Append(";}");
+            sb.Append("body{margin:0;padding:12px;background:var(--bg);color:var(--text);font:13px 'Microsoft YaHei UI','Segoe UI',sans-serif;}h2{font:600 14px 'Microsoft YaHei UI';color:var(--muted);margin:0 0 10px;}table{width:100%;border-collapse:collapse;font:12px Consolas,monospace;}th{text-align:left;color:var(--muted);font-weight:normal;background:var(--bg3);padding:6px;}td{border-bottom:1px solid var(--line);padding:6px;vertical-align:top;}tr:hover{background:var(--bg2);}pre{white-space:pre-wrap;word-break:break-all;font:12px Consolas,monospace;} .warn{color:var(--warning);} .danger{color:var(--danger);} .ok{color:var(--success);} .empty{color:var(--weak);font-style:italic;}");
+            sb.Append("</style></head><body><h2>").Append(title).Append("</h2>").Append(body).Append("</body></html>");
+            return sb.ToString();
+        }
+
+        async void RenderMemoryHtml()
+        {
+            try
+            {
+                var mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult();
+                var sb = new StringBuilder();
+                sb.Append("<table><tr><th>kind</th><th>key</th><th>value</th><th>status</th><th>source</th></tr>");
+                foreach (MemoryItem m in mem)
+                {
+                    string cls = string.Equals(m.Status, "disputed", StringComparison.OrdinalIgnoreCase) ? "warn" : "";
+                    sb.Append("<tr><td>").Append(System.Net.WebUtility.HtmlEncode(m.Kind ?? "")).Append("</td><td>").Append(System.Net.WebUtility.HtmlEncode(m.Key ?? "")).Append("</td><td>").Append(System.Net.WebUtility.HtmlEncode(m.Value ?? "")).Append("</td><td class='").Append(cls).Append("'>").Append(System.Net.WebUtility.HtmlEncode(m.Status ?? "")).Append("</td><td>").Append(System.Net.WebUtility.HtmlEncode(m.SourceAuditId ?? "")).Append("</td></tr>");
+                }
+                if (mem.Count == 0) sb.Append("<tr><td colspan='5' class='empty'>没有记忆</td></tr>");
+                sb.Append("</table>");
+                await _web.EnsureCoreWebView2Async(null);
+                _web.CoreWebView2.NavigateToString(HtmlPage("记忆", sb.ToString()));
+            }
+            catch (Exception ex) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), ex + "\n"); } catch { } }
+        }
+
+        async void RenderAuditHtml()
+        {
+            try
+            {
+                var sb = new StringBuilder();
+                sb.Append("<pre>");
+                string body = AuditPath();
+                if (File.Exists(body))
+                    foreach (string l in File.ReadLines(body).Reverse().Take(100).Reverse()) sb.Append(System.Net.WebUtility.HtmlEncode(l)).Append("\n");
+                string face = FaceAudit.PathFor(_dataDir);
+                if (File.Exists(face))
+                    foreach (string l in File.ReadLines(face).Reverse().Take(50).Reverse()) sb.Append(System.Net.WebUtility.HtmlEncode(l)).Append("\n");
+                if (sb.Length == 7) sb.Append("没有审计记录");
+                sb.Append("</pre>");
+                await _web.EnsureCoreWebView2Async(null);
+                _web.CoreWebView2.NavigateToString(HtmlPage("审计", sb.ToString()));
+            }
+            catch (Exception ex) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), ex + "\n"); } catch { } }
         }
         public void ShowPulse()
         {
