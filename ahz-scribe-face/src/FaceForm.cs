@@ -89,6 +89,7 @@ namespace AhzScribe.Face
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
         readonly NotifyIcon _tray;
         readonly System.Windows.Forms.Timer _clockTimer;
+        readonly UIStateBus _uiBus = new UIStateBus();
         bool _reallyExit;
         readonly TextBox _memoryFilter;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe, _setBodyData;
@@ -133,6 +134,7 @@ namespace AhzScribe.Face
             _memory = new MemoryStore(Path.Combine(_dataDir, "memory.jsonl"));
             _host = new BrainHost(_memory, CreateModel(out _modelName));
             _host.Trace = delegate(string line) { AppendTrace(line); };
+            _uiBus.Changed += ApplyUiSnapshot;
             _pulseBody = new FacePulseBody();
             _pulse = new PulseScheduler(_pulseBody, _memory, new FacePulseAudit(AppendTrace, Path.Combine(_dataDir, "pulse.log")),
                 new FacePulseSink(OnPulse), new ModelPulseDecider(_memory, _host.Model));
@@ -850,6 +852,35 @@ namespace AhzScribe.Face
             l.AutoEllipsis = true;
             return l;
         }
+        void ApplyUiSnapshot(UiSnapshot s)
+        {
+            if (s == null) return;
+            if (InvokeRequired) { BeginInvoke(new Action<UiSnapshot>(ApplyUiSnapshot), s); return; }
+            BodyStatus b = s.Body ?? new BodyStatus();
+            FaceState st = s.State;
+            if (_topIdle != null)
+            {
+                string fore = b.ForegroundApp ?? "";
+                if (fore.Length > 26) fore = fore.Substring(0, 26) + "…";
+                _topIdle.Text = " 空闲 " + (b.IdleSeconds / 60) + " 分";
+                _topFore.Text = " 前台 " + fore;
+                _topDisk.Text = "磁盘 " + b.DiskFreeGb.ToString("F0") + "G ";
+                string em = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AhzScribe", "state", "EMERGENCY_STOP");
+                _topDot.ForeColor = File.Exists(em) ? Theme.StateDanger : (b.AgentProcessAlive ? Theme.StateInfo : Theme.StateNeutral);
+                if (_tray != null) _tray.Text = "Ahz Scribe · " + (b.AgentProcessAlive ? "运行中" : "休眠");
+            }
+            if (_stateFocus != null)
+            {
+                _stateFocus.Text = "当前焦点\n" + (st == null || string.IsNullOrEmpty(st.CurrentFocus) ? "—" : st.CurrentFocus);
+                int oi = st == null || st.OpenIntents == null ? 0 : st.OpenIntents.Count(x => x.Status == "open" || x.Status == "monitoring");
+                string first = st == null || st.OpenIntents == null ? "" : st.OpenIntents.Where(x => x.Status == "open" || x.Status == "monitoring").Select(x => x.Text).FirstOrDefault();
+                _stateIntents.Text = "未完成意图 " + oi + (string.IsNullOrEmpty(first) ? "" : "\n" + first);
+                _stateBody.Text = "身体\n空闲 " + (b.IdleSeconds / 60) + " 分 · " + (b.NetworkOnline ? "在线" : "离线");
+                _statePulse.Text = "最近脉冲\n" + (st == null || st.LastPulseTrigger == null ? "—" : st.LastPulseTrigger.Type + " " + st.LastPulseTrigger.ReceivedAt);
+                string mood = st != null && !string.IsNullOrEmpty(st.ActiveTask) ? "专注" : (st != null && string.Equals(st.LastPulseResult, "none", StringComparison.OrdinalIgnoreCase) ? "安静" : "平静");
+                _stateMood.Text = "情绪\n" + mood;
+            }
+        }
         void ShowHtmlTab()
         {
             if (_tabs.SelectedIndex >= 1 && _tabs.SelectedIndex <= 3)
@@ -1010,6 +1041,7 @@ namespace AhzScribe.Face
                     string mood = st != null && !string.IsNullOrEmpty(st.ActiveTask) ? "专注" : (st != null && string.Equals(st.LastPulseResult, "none", StringComparison.OrdinalIgnoreCase) ? "安静" : "平静");
                     _stateMood.Text = "情绪\n" + mood;
                 }
+                _uiBus.Publish(new UiSnapshot { State = st, Body = b });
                 int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
                 var sb = new StringBuilder();
                 sb.AppendLine("episode     " + (st == null ? "-" : st.CurrentEpisode));
