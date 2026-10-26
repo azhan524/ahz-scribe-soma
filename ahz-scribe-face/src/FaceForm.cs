@@ -287,7 +287,7 @@ namespace AhzScribe.Face
             foreach (FaceMessage old in history)
             {
                 if (old.Kind == "tool") AppendTrace(old.Text);
-                else Append((old.Role ?? "") + "：" + (old.Text ?? ""));
+                else AppendHistory(old);
             }
             RememberOldEpisodes(history);
             RenderMemory();
@@ -373,6 +373,14 @@ namespace AhzScribe.Face
         {
             if (string.IsNullOrEmpty(s)) return "";
             return s.Length <= n ? s : s.Substring(0, n) + "…";
+        }
+        void AppendHistory(FaceMessage m)
+        {
+            string role = m.Role ?? "";
+            _output.SelectionColor = role == "你" ? Color.FromArgb(110, 170, 255) : Color.FromArgb(140, 220, 170);
+            _output.AppendText(role + "：");
+            _output.SelectionColor = Color.FromArgb(220, 224, 230);
+            _output.AppendText((m.Text ?? "") + Environment.NewLine + Environment.NewLine);
         }
         void AppendChat(string role, string text, string kind)
         {
