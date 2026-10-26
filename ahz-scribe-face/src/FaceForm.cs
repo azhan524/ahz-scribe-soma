@@ -377,7 +377,12 @@ namespace AhzScribe.Face
         void AppendChat(string role, string text, string kind)
         {
             FaceSession.Append(_sessionPath, new FaceMessage { Role = role, Text = text, Kind = kind });
-            Append(role + "：" + text);
+            _output.SelectionColor = role == "你" ? Color.FromArgb(110, 170, 255) : Color.FromArgb(140, 220, 170);
+            _output.AppendText(role + "：");
+            _output.SelectionColor = Color.FromArgb(220, 224, 230);
+            _output.AppendText((text ?? "") + Environment.NewLine + Environment.NewLine);
+            _output.SelectionStart = _output.TextLength;
+            _output.ScrollToCaret();
         }
         void AppendTrace(string text)
         {
