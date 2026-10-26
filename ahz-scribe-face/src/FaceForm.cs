@@ -19,6 +19,7 @@ namespace AhzScribe.Face
         readonly TextBox _memoryView;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe;
         readonly TabControl _tabs;
+        readonly Label _status;
         readonly TextBox _input;
         readonly Button _send;
         readonly BrainHost _host;
@@ -291,6 +292,17 @@ namespace AhzScribe.Face
             }
             catch { }
         }
+        void UpdateStatus()
+        {
+            try
+            {
+                FaceState st = FaceSession.LoadState(_sessionPath);
+                int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
+                string ep = st == null || string.IsNullOrEmpty(st.CurrentEpisode) ? "-" : st.CurrentEpisode;
+                _status.Text = "episode " + ep + "   memory " + mem + "   body " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body");
+            }
+            catch { }
+        }
         void SaveSettings()
         {
             _settings.BaseUrl = _setBase.Text.Trim();
@@ -343,6 +355,7 @@ namespace AhzScribe.Face
                     ? await _host.RunToolAsync(text.Substring(6), CancellationToken.None)
                     : await _host.AskAsync(text, CancellationToken.None);
                 AppendChat("Ahz", answer ?? "", "chat");
+            UpdateStatus();
             }
             catch (Exception ex) { Append("错误：" + ex.Message); }
             finally { _send.Enabled = true; _input.Focus(); }
