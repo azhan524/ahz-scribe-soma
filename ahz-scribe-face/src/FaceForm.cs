@@ -1430,7 +1430,25 @@ namespace AhzScribe.Face
                 finally { _pulseBody.LastUserAt = saved; }
                 return;
             }
-            if (text == "/proactive-reset")
+            if (text == "/selfcheck")
+            {
+                var sb = new StringBuilder();
+                try
+                {
+                    string auditDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "AhzScribe", "audit");
+                    Directory.CreateDirectory(auditDir);
+                    string probe = Path.Combine(auditDir, ".write_probe");
+                    File.WriteAllText(probe, "1"); File.Delete(probe);
+                    sb.AppendLine("audit    OK " + auditDir);
+                }
+                catch (Exception ex) { sb.AppendLine("audit    FAIL " + ex.Message); }
+                sb.AppendLine("body     " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body"));
+                sb.AppendLine("memory   " + _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count + " 条");
+                sb.AppendLine("webview  " + (_web != null && _web.CoreWebView2 != null ? "OK" : "未初始化"));
+                sb.AppendLine("state    " + (_sessionPath ?? "-"));
+                AppendChat("Ahz", sb.ToString(), "chat");
+                return;
+            }            if (text == "/proactive-reset")
             {
                 FaceState st = FaceSession.LoadState(_sessionPath);
                 if (st != null)
