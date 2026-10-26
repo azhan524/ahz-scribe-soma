@@ -102,6 +102,29 @@ internal static class Program
             }
             finally { try { Directory.Delete(dir, true); } catch { } }
         }
+        if (args != null && Array.IndexOf(args, "--pulse-test") >= 0)
+        {
+            var q = new PulseQueue();
+            q.Enqueue(new PulseTrigger { Type = "timer" });
+            q.Enqueue(new PulseTrigger { Type = "drive" });
+            q.Enqueue(new PulseTrigger { Type = "intent_due" });
+            q.Enqueue(new PulseTrigger { Type = "body_event" });
+            q.Enqueue(new PulseTrigger { Type = "user_message" });
+            string order = "";
+            PulseTrigger t;
+            while ((t = q.Dequeue()) != null) order += t.Type + ",";
+            bool orderOk = order == "user_message,intent_due,body_event,drive,timer,";
+            var body = new FaceBody();
+            var mem = new MemoryStore(Path.Combine(Path.GetTempPath(), "ahz-pulse-" + Guid.NewGuid().ToString("N"), "memory.jsonl"));
+            var sched = new PulseScheduler(body, mem, new ConsoleAudit(), new ConsoleSink(), new NoDecider());
+            var arb = new PulseArbiter(sched, new PulseQueue(), delegate { return new FaceState { ActiveTask = "running" }; });
+            var d = arb.EnqueueAsync(new PulseTrigger { Type = "timer" }, CancellationToken.None).GetAwaiter().GetResult();
+            bool deferOk = d != null && d.Reason == "active_task_deferred";
+            Console.WriteLine("queue_order=" + order + " deferred=" + deferOk);
+            Console.WriteLine(orderOk && deferOk ? "PULSE QUEUE: PASS" : "PULSE QUEUE: FAIL");
+            sched.Dispose(); mem.Dispose();
+            return orderOk && deferOk ? 0 : 1;
+        }
         if (args != null && Array.IndexOf(args, "--state-test") >= 0)
         {
             string dir = Path.Combine(AppContext.BaseDirectory, "_state-test-" + Guid.NewGuid().ToString("N"));

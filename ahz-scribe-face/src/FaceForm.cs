@@ -34,6 +34,9 @@ namespace AhzScribe.Face
         readonly BodySensor _sensor;
         readonly System.Threading.Timer _bodyTimer;
         readonly PulseScheduler _pulse;
+        readonly PulseQueue _pulseQueue;
+        readonly PulseArbiter _arbiter;
+        readonly System.Threading.Timer _pulseTimer;
         readonly string _modelName;
         readonly string _sessionPath;
         readonly string _dataDir;
@@ -61,12 +64,14 @@ namespace AhzScribe.Face
             _pulseBody = new FacePulseBody();
             _pulse = new PulseScheduler(_pulseBody, _memory, new FacePulseAudit(AppendTrace, Path.Combine(_dataDir, "pulse.log")),
                 new FacePulseSink(OnPulse), new ModelPulseDecider(_memory, _host.Model));
-            _pulse.Start(60000);
+            _pulseQueue = new PulseQueue();
+            _arbiter = new PulseArbiter(_pulse, _pulseQueue, delegate { return FaceSession.LoadState(_sessionPath); });
+            _pulseTimer = new System.Threading.Timer(delegate { PulseTick(); }, null, 60000, 60000);
             _sensor = new BodySensor(_settings.Workspace);
             _bodyTimer = new System.Threading.Timer(delegate { SampleBody(); }, null, 0, 30000);
             _sensor = new BodySensor(_settings.Workspace);
             _bodyTimer = new System.Threading.Timer(delegate { SampleBody(); }, null, 0, 30000);
-            FormClosed += delegate { _pulse.Dispose(); _bodyTimer.Dispose(); };
+            FormClosed += delegate { _pulse.Dispose(); _bodyTimer.Dispose(); _pulseTimer.Dispose(); };
             _host.Policy = new SelfIterationPolicy();
             _host.Propose = delegate(BrainToolCall call, CancellationToken ct)
             {
@@ -490,6 +495,21 @@ namespace AhzScribe.Face
             }
             catch { }
         }
+        void PulseTick()
+        {
+            try
+            {
+                FaceState st = FaceSession.LoadState(_sessionPath);
+                if (st != null && !string.IsNullOrEmpty(st.ActiveTask)) return;
+                bool due = st != null && st.OpenIntents != null && st.OpenIntents.Any(x => x.Status == "open" || x.Status == "monitoring");
+                bool idle = _pulseBody.Snapshot().IdleSeconds >= 1800;
+                string type = due ? "intent_due" : (idle ? "body_event" : "timer");
+                FaceSession.SetPulseTrigger(_sessionPath, type, "scheduled");
+                PulseDecision d = _arbiter.EnqueueAsync(new PulseTrigger { Type = type, Payload = "scheduled" }, CancellationToken.None).GetAwaiter().GetResult();
+                if (d != null && d.Action == "message") OnPulse(new PulseEvent { Summary = d.Text });
+            }
+            catch { }
+        }
         void SampleBody()
         {
             try
@@ -634,14 +654,14 @@ namespace AhzScribe.Face
                 string f = StopPath();
                 Directory.CreateDirectory(Path.GetDirectoryName(f));
                 File.WriteAllText(f, DateTime.Now.ToString("o"));
-                _pulse.Stop();
+                _pulseTimer.Change(Timeout.Infinite, Timeout.Infinite);
                 AppendChat("Ahz", "EMERGENCY_STOP 已启用。删除 " + f + " 或发 /resume 恢复。", "chat");
                 return;
             }
             if (text == "/resume")
             {
                 try { File.Delete(StopPath()); } catch { }
-                _pulse.Start(60000);
+                _pulseTimer.Change(60000, 60000);
                 AppendChat("Ahz", "已恢复脉冲。", "chat");
                 return;
             }
@@ -667,7 +687,7 @@ namespace AhzScribe.Face
                 _pulseBody.LastUserAt = DateTime.UtcNow.AddSeconds(-701);
                 try
                 {
-                    PulseDecision d = _pulse.TickAsync(CancellationToken.None).GetAwaiter().GetResult();
+                    PulseDecision d = _arbiter.EnqueueAsync(new PulseTrigger { Type = "timer", Payload = "manual /pulse" }, CancellationToken.None).GetAwaiter().GetResult();
                     AppendChat("Ahz", "pulse: " + (d == null ? "null" : d.Action + " / " + (d.Reason ?? "")), "chat");
                 }
                 finally { _pulseBody.LastUserAt = saved; }
