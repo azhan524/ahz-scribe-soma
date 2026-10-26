@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -508,7 +509,7 @@ namespace AhzScribe.Face
             settingsFlow.Controls.Add(MakeInfoGroup("记忆", "语义 / 情节 / disputed 三类记忆\\n24 小时去重，冲突标记 disputed"));
             settingsFlow.Controls.Add(MakeInfoGroup("脉冲", "周期 60 秒\\n优先级：user_message > intent_due > body_event > drive > timer"));
             settingsFlow.Controls.Add(MakeInfoGroup("主动性", "每日最多 2 条\\n23:00–08:00 静默，连续未回复暂停 24 小时"));
-            settingsFlow.Controls.Add(MakeInfoGroup("人格", "SOUL.md / BOUNDARIES.md / STYLE.md\\n由工作区文件维护"));
+            settingsFlow.Controls.Add(MakePersonaGroup());
             settingsPage.Controls.Add(settingsFlow);
             var taskPage = new TabPage("任务");
             taskPage.BackColor = Theme.BgPrimary;
@@ -1095,6 +1096,32 @@ namespace AhzScribe.Face
             return g;
         }
 
+        GroupBox MakePersonaGroup()
+        {
+            var g = MakeGroup("人格");
+            g.Height = 120;
+            var flow = new FlowLayoutPanel();
+            flow.Dock = DockStyle.Fill;
+            flow.FlowDirection = FlowDirection.LeftToRight;
+            flow.WrapContents = true;
+            flow.Padding = new Padding(8, 20, 8, 8);
+            foreach (string name in new[] { "SOUL.md", "BOUNDARIES.md", "STYLE.md" })
+            {
+                var b = new Button();
+                b.Text = name;
+                b.Width = 120;
+                b.Height = 28;
+                b.FlatStyle = FlatStyle.Flat;
+                b.FlatAppearance.BorderSize = 0;
+                b.BackColor = Theme.BgTertiary;
+                b.ForeColor = Theme.TextPrimary;
+                string file = Path.Combine(_settings.Workspace ?? "", name);
+                b.Click += delegate { try { if (File.Exists(file)) Process.Start(new ProcessStartInfo(file) { UseShellExecute = true }); } catch { } };
+                flow.Controls.Add(b);
+            }
+            g.Controls.Add(flow);
+            return g;
+        }
         static GroupBox MakeInfoGroup(string title, string text)
         {
             var g = MakeGroup(title);
