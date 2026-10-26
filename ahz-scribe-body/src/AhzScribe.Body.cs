@@ -29,7 +29,9 @@ namespace AhzScribe.Body
                 return IpcSelfTest.Run();
             if (args != null && args.Length > 0 && args[0] == "--broker-test")
             {
-                var sink = new BrokerAuditSink(new JsonlAuditSink(Path.Combine(Path.GetTempPath(), "ahz-broker-test.jsonl")));
+                string data = Environment.GetEnvironmentVariable("AHZ_BODY_DATA") ?? Path.Combine(Environment.CurrentDirectory, "_body-data");
+                Directory.CreateDirectory(data);
+                var sink = new BrokerAuditSink(new JsonlAuditSink(Path.Combine(data, "broker-test.jsonl")));
                 string id = sink.AppendAsync("broker_test", "test", "allowed", "ok", "read-only",
                     new Dictionary<string, object>(), "broker test", CancellationToken.None).GetAwaiter().GetResult();
                 Console.WriteLine("BROKER AUDIT: " + (string.IsNullOrEmpty(id) ? "FAIL" : "PASS " + id));
