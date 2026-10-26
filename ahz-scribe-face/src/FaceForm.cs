@@ -550,11 +550,18 @@ namespace AhzScribe.Face
                 if (st != null && !string.IsNullOrEmpty(st.ActiveTask)) return;
                 DateTime lastCheck = DateTime.MinValue;
                 if (st != null && !string.IsNullOrEmpty(st.LastIntentCheck)) DateTime.TryParse(st.LastIntentCheck, out lastCheck);
-                bool checkDue = (DateTime.Now - lastCheck).TotalMinutes >= 10;
-                bool due = checkDue && st != null && st.OpenIntents != null && st.OpenIntents.Any(x => x.Status == "open" || x.Status == "monitoring");
-                if (checkDue && st != null) { st.LastIntentCheck = DateTime.Now.ToString("o"); FaceSession.SaveState(_sessionPath, st); }
-                bool idle = _pulseBody.Snapshot().IdleSeconds >= 1800;
+                DateTime now = DateTime.Now;
+                bool checkDue = (now - lastCheck).TotalMinutes >= 10;
                 bool hasOpen = st != null && st.OpenIntents != null && st.OpenIntents.Any(x => x.Status == "open" || x.Status == "monitoring");
+                bool hasDue = hasOpen && st.OpenIntents.Any(x =>
+                {
+                    if (x.Status != "open" && x.Status != "monitoring") return false;
+                    DateTime dueAt;
+                    return string.IsNullOrEmpty(x.DueAt) || (DateTime.TryParse(x.DueAt, out dueAt) && dueAt <= now);
+                });
+                bool due = checkDue && hasDue;
+                if (checkDue && st != null) { st.LastIntentCheck = now.ToString("o"); FaceSession.SaveState(_sessionPath, st); }
+                bool idle = _sensor != null && _sensor.Snapshot().IdleSeconds >= 1800;
                 string type = due ? "intent_due" : (idle && hasOpen ? "body_event" : "timer");
                 FaceSession.SetPulseTrigger(_sessionPath, type, "scheduled");
                 PulseDecision d = _arbiter.EnqueueAsync(new PulseTrigger { Type = type, Payload = "scheduled" }, CancellationToken.None).GetAwaiter().GetResult();
