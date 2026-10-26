@@ -16,26 +16,60 @@ using AhzScribe.Contracts;
 namespace AhzScribe.Face
 {
     [System.Runtime.InteropServices.ComVisible(true)]
+    public sealed class PulseRow
+    {
+        public string time { get; set; }
+        public string triggerType { get; set; }
+        public string action { get; set; }
+        public string reason { get; set; }
+        public string raw { get; set; }
+    }
+
+    [System.Runtime.InteropServices.ComVisible(true)]
     public sealed class FaceUiHost
     {
         readonly string _dataDir;
         public FaceUiHost(string dataDir) { _dataDir = dataDir; }
+
         public string QueryPulses(string filter)
         {
             string p = Path.Combine(_dataDir, "pulse.log");
+            var rows = new List<PulseRow>();
             if (!File.Exists(p)) return "[]";
-            var lines = File.ReadLines(p).Reverse().Take(200).Reverse();
-            var sb = new StringBuilder("[");
-            bool first = true;
-            foreach (string l in lines)
+            foreach (string line in File.ReadLines(p).Reverse().Take(200).Reverse())
             {
-                if (!string.IsNullOrEmpty(filter) && l.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
-                if (!first) sb.Append(',');
-                first = false;
-                sb.Append(System.Text.Json.JsonSerializer.Serialize(l));
+                if (!string.IsNullOrEmpty(filter) && line.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                var row = new PulseRow { raw = line };
+                if (line.Length >= 19) row.time = line.Substring(11, 8);
+                string rest = line.Length > 19 ? line.Substring(19).Trim() : line;
+                string source = rest; string[] parts = new string[0];
+                int slash = rest.IndexOf(" / ", StringComparison.Ordinal);
+                if (slash >= 0)
+                {
+                    source = rest.Substring(0, slash).Trim();
+                    parts = rest.Substring(slash + 3).Split(new[] { " / " }, StringSplitOptions.None);
+                }
+                row.triggerType = source;
+                if (source == "proactive_message")
+                {
+                    row.action = parts.Length > 0 ? parts[0] : "";
+                    row.triggerType = parts.Length > 2 ? parts[2] : "user_message";
+                    row.reason = parts.Length > 2 ? parts[2] : "";
+                }
+                else if (source == "pulse_model")
+                {
+                    row.action = parts.Length > 2 ? parts[2] : "none";
+                    row.triggerType = "timer";
+                    row.reason = parts.Length > 2 ? parts[2] : "";
+                }
+                else
+                {
+                    row.action = parts.Length > 1 ? parts[1] : "";
+                    row.reason = parts.Length > 2 ? parts[2] : "";
+                }
+                rows.Add(row);
             }
-            sb.Append(']');
-            return sb.ToString();
+            return System.Text.Json.JsonSerializer.Serialize(rows);
         }
     }
     public sealed class FaceForm : Form
@@ -894,14 +928,13 @@ namespace AhzScribe.Face
                 sb.Append(":root{--bg:").Append(Css(Theme.BgPrimary)).Append(";--bg2:").Append(Css(Theme.BgSecondary)).Append(";--bg3:").Append(Css(Theme.BgTertiary)).Append(";--elev:").Append(Css(Theme.BgElevated)).Append(";--line:").Append(Css(Theme.BorderSubtle)).Append(";--text:").Append(Css(Theme.TextPrimary)).Append(";--muted:").Append(Css(Theme.TextSecondary)).Append(";--weak:").Append(Css(Theme.TextTertiary)).Append(";--info:").Append(Css(Theme.StateInfo)).Append(";--success:").Append(Css(Theme.StateSuccess)).Append(";--warning:").Append(Css(Theme.StateWarning)).Append(";--danger:").Append(Css(Theme.StateDanger)).Append(";}");
                 sb.Append("*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:13px 'Microsoft YaHei UI','Segoe UI',sans-serif;}");
                 sb.Append("header{padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;position:sticky;top:0;z-index:2;}header span{color:var(--muted);font:12px 'Microsoft YaHei UI';}header input{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:6px 8px;border-radius:4px;font:12px 'Microsoft YaHei UI';}");
-                sb.Append(".row{border-bottom:1px solid var(--line);} .row:hover{background:var(--elev);} summary{display:flex;gap:10px;align-items:baseline;padding:7px 12px;cursor:pointer;list-style:none;} summary::-webkit-details-marker{display:none;}.t{font:12px Consolas,monospace;color:var(--muted);min-width:64px;}.src{font:12px Consolas,monospace;color:var(--info);min-width:150px;}.act{font:12px Consolas,monospace;min-width:60px;}.why{font:12px 'Microsoft YaHei UI';color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.chev{color:var(--muted);margin-left:auto;font-size:11px;}details[open] .chev{transform:rotate(90deg);}");
+                sb.Append(".row{border-bottom:1px solid var(--line);} .row:hover{background:var(--elev);} summary{display:flex;gap:10px;align-items:baseline;padding:7px 12px;cursor:pointer;list-style:none;} summary::-webkit-details-marker{display:none;}.t{font:12px Consolas,monospace;color:var(--muted);min-width:64px;}.src{font:12px Consolas,monospace;color:var(--info);min-width:120px;}.act{font:12px Consolas,monospace;min-width:60px;}.why{font:12px 'Microsoft YaHei UI';color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.chev{color:var(--muted);margin-left:auto;font-size:11px;}details[open] .chev{transform:rotate(90deg);}");
                 sb.Append(".detail{margin:0;padding:8px 12px 12px 86px;background:var(--bg3);color:var(--text);font:11.5px Consolas,monospace;white-space:pre-wrap;word-break:break-all;}.empty{color:var(--weak);font-style:italic;padding:18px 12px;}.err{color:var(--danger);padding:12px;}");
                 sb.Append("</style></head><body><header><span>脉冲</span><input id='q' placeholder='搜索 thought / reason / 工具'><span id='cnt'></span></header><div id='list'><div class='empty'>加载中…</div></div>");
                 sb.Append("<script>");
                 sb.Append("const KEY='ahzscribe.ui.pulse';let rows=[];function esc(s){return String(s==null?'':s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));}");
-                sb.Append("function parse(raw){let time=raw.length>=19?raw.slice(11,19):'';let rest=raw.length>19?raw.slice(19).trim():raw;let src=rest,act='',why='';let i=rest.indexOf(' / ');if(i>=0){src=rest.slice(0,i).trim();let p=rest.slice(i+3).split(' / ');if(p.length>=2)act=p[1].trim();if(p.length>=3)why=p[2].trim();}return{time,src,act,why,raw};}");
-                sb.Append("function render(){let q=(document.getElementById('q').value||'').toLowerCase();let list=document.getElementById('list');list.innerHTML='';let n=0;rows.forEach(function(r){if(q&&r.raw.toLowerCase().indexOf(q)<0)return;n++;let color=r.act==='none'?'var(--weak)':(r.act==='memory'?'var(--success)':'var(--text)');let d=document.createElement('details');d.className='row';d.innerHTML='<summary><span class=\"t\">'+esc(r.time)+'</span><span class=\"src\">'+esc(r.src)+'</span><span class=\"act\" style=\"color:'+color+'\">'+esc(r.act||r.raw)+'</span><span class=\"why\">'+esc(r.why)+'</span><span class=\"chev\">▸</span></summary><pre class=\"detail\">'+esc(r.raw)+'</pre>';list.appendChild(d);});if(n===0)list.innerHTML='<div class=\"empty\">没有匹配的脉冲</div>';document.getElementById('cnt').textContent=n+' 条';}");
-                sb.Append("async function load(){try{let raw=await chrome.webview.hostObjects.host.QueryPulses('');rows=JSON.parse(raw).map(parse);let saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}document.getElementById('q').value=saved.q||'';render();if(saved.scroll)setTimeout(()=>document.getElementById('list').scrollTop=saved.scroll,50);}catch(e){document.getElementById('list').innerHTML='<div class=\"err\">'+esc(e)+'</div>';}}");
+                sb.Append("function render(){let q=(document.getElementById('q').value||'').toLowerCase();let list=document.getElementById('list');list.innerHTML='';let n=0;rows.forEach(function(r){if(q&&(r.raw||'').toLowerCase().indexOf(q)<0)return;n++;let color=r.action==='none'?'var(--weak)':(r.action==='memory'?'var(--success)':'var(--text)');let d=document.createElement('details');d.className='row';d.innerHTML='<summary><span class=\"t\">'+esc(r.time)+'</span><span class=\"src\">'+esc(r.triggerType)+'</span><span class=\"act\" style=\"color:'+color+'\">'+esc(r.action)+'</span><span class=\"why\">'+esc(r.reason)+'</span><span class=\"chev\">▸</span></summary><pre class=\"detail\">'+esc(r.raw)+'</pre>';list.appendChild(d);});if(n===0)list.innerHTML='<div class=\"empty\">没有匹配的脉冲</div>';document.getElementById('cnt').textContent=n+' 条';}");
+                sb.Append("async function load(){try{rows=JSON.parse(await chrome.webview.hostObjects.host.QueryPulses(''));let saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}document.getElementById('q').value=saved.q||'';render();if(saved.scroll)setTimeout(()=>document.getElementById('list').scrollTop=saved.scroll,50);}catch(e){document.getElementById('list').innerHTML='<div class=\"err\">'+esc(e)+'</div>';}}");
                 sb.Append("document.getElementById('q').addEventListener('input',function(){render();try{localStorage.setItem(KEY,JSON.stringify({q:this.value,scroll:document.getElementById('list').scrollTop}));}catch(e){}});document.getElementById('list').addEventListener('scroll',function(){try{localStorage.setItem(KEY,JSON.stringify({q:document.getElementById('q').value,scroll:this.scrollTop}));}catch(e){}},{passive:true});load();");
                 sb.Append("</script></body></html>");
                 await _web.EnsureCoreWebView2Async(null);
