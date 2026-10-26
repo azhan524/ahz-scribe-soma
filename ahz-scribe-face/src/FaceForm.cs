@@ -495,6 +495,24 @@ namespace AhzScribe.Face
             }
             catch { }
         }
+        bool AllowProactive()
+        {
+            FaceState st = FaceSession.LoadState(_sessionPath);
+            if (st == null) return true;
+            DateTime now = DateTime.Now;
+            if (now.Hour < 8 || now.Hour >= 23) return false;
+            DateTime paused;
+            if (DateTime.TryParse(st.ProactivePausedUntil, out paused) && paused > now) return false;
+            string today = now.ToString("yyyy-MM-dd");
+            if (st.LastProactiveDate != today) { st.LastProactiveDate = today; st.ProactiveCount = 0; }
+            if (st.ProactiveCount >= 2) return false;
+            st.ProactiveCount++;
+            st.LastProactiveAt = now.ToString("o");
+            st.UnansweredProactive++;
+            if (st.UnansweredProactive >= 2) st.ProactivePausedUntil = now.AddHours(24).ToString("o");
+            FaceSession.SaveState(_sessionPath, st);
+            return true;
+        }
         void RunDrive()
         {
             try
@@ -525,7 +543,8 @@ namespace AhzScribe.Face
                 bool due = checkDue && st != null && st.OpenIntents != null && st.OpenIntents.Any(x => x.Status == "open" || x.Status == "monitoring");
                 if (checkDue && st != null) { st.LastIntentCheck = DateTime.Now.ToString("o"); FaceSession.SaveState(_sessionPath, st); }
                 bool idle = _pulseBody.Snapshot().IdleSeconds >= 1800;
-                string type = due ? "intent_due" : (idle ? "body_event" : "timer");
+                bool hasOpen = st != null && st.OpenIntents != null && st.OpenIntents.Any(x => x.Status == "open" || x.Status == "monitoring");
+                string type = due ? "intent_due" : (idle && hasOpen ? "body_event" : "timer");
                 FaceSession.SetPulseTrigger(_sessionPath, type, "scheduled");
                 PulseDecision d = _arbiter.EnqueueAsync(new PulseTrigger { Type = type, Payload = "scheduled" }, CancellationToken.None).GetAwaiter().GetResult();
                 if (d != null && d.Action == "message") OnPulse(new PulseEvent { Summary = d.Text });
@@ -548,6 +567,7 @@ namespace AhzScribe.Face
         void OnPulse(PulseEvent evt)
         {
             if (InvokeRequired) { BeginInvoke(new Action<PulseEvent>(OnPulse), evt); return; }
+            if (!AllowProactive()) { FaceAudit.Append(_dataDir, "proactive", "message", "blocked", "", "policy"); return; }
             if (!string.IsNullOrEmpty(evt.IntentId)) FaceSession.CloseIntent(_sessionPath, evt.IntentId, "done");
             AppendChat("Ahz", evt.Summary ?? "提醒", "chat");
         }
@@ -669,6 +689,8 @@ namespace AhzScribe.Face
             if (text.Length == 0) return;
             _input.Clear();
             _pulseBody.LastUserAt = DateTime.UtcNow;
+            FaceState ps = FaceSession.LoadState(_sessionPath);
+            if (ps != null) { ps.UnansweredProactive = 0; ps.ProactivePausedUntil = ""; FaceSession.SaveState(_sessionPath, ps); }
             FaceSession.SetFocus(_sessionPath, text);
             UpdateTitle(text);
             AppendChat("你", text, "chat");

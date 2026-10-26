@@ -47,6 +47,11 @@ namespace AhzScribe.Face
         public PulseTrigger LastPulseTrigger { get; set; }
         public string LastDriveDate { get; set; }
         public string LastIntentCheck { get; set; }
+        public string LastProactiveDate { get; set; }
+        public int ProactiveCount { get; set; }
+        public string LastProactiveAt { get; set; }
+        public int UnansweredProactive { get; set; }
+        public string ProactivePausedUntil { get; set; }
     }
 
     public static class FaceSession
