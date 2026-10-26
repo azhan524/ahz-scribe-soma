@@ -4,6 +4,8 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using CefSharp;
+using System.Reflection;
 using AhzScribe.Brain;
 using AhzScribe.Face;
 using AhzScribe.Contracts;
@@ -228,6 +230,7 @@ internal static class Program
         {
             System.Windows.Forms.Application.EnableVisualStyles();
             System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
+
             System.Windows.Forms.Application.Run(new AhzScribe.Face.FaceForm());
             return 0;
         }
