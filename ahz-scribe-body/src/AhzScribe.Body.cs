@@ -97,6 +97,11 @@ namespace AhzScribe.Body
                     return result;
                 }
 
+                await _audit.AppendAsync("tier_decision", request.Tool, request.Tier.ToString(), "", request.Tier.ToString(),
+                    request.Args, request.Reason, ct).ConfigureAwait(false);
+                if (request.Approved)
+                    await _audit.AppendAsync("approval", request.Tool, "approved", "", request.Tier.ToString(),
+                        request.Args, "user approved", ct).ConfigureAwait(false);
                 string auditId = await _audit.AppendAsync(
                     "body_action", request.Tool, "allowed", "",
                     request.Tier.ToString(), request.Args, request.Reason, ct).ConfigureAwait(false);
@@ -151,6 +156,12 @@ namespace AhzScribe.Body
             {
                 result.Ok = false;
                 result.Error = ex.Message;
+                try
+                {
+                    await _audit.AppendAsync("blocked", request.Tool, "blocked", ex.Message, request.Tier.ToString(),
+                        request.Args, "body exception", ct).ConfigureAwait(false);
+                }
+                catch { }
             }
             result.DurationMs = (long)(DateTime.UtcNow - started).TotalMilliseconds;
             return result;

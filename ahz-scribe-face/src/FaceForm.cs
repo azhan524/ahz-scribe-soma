@@ -376,8 +376,17 @@ namespace AhzScribe.Face
                             Key = "episode:" + g.Key,
                             Value = summary,
                             Summary = "episode " + g.Key,
+                            SourceAuditId = "episode:" + g.Key,
                             Status = "active"
                         }, CancellationToken.None).GetAwaiter().GetResult();
+                        try
+                        {
+                            var extractor = new MemoryExtractor(_host.Model);
+                            List<MemoryItem> extracted = await extractor.ExtractAsync(fallback, "episode:" + g.Key, CancellationToken.None).ConfigureAwait(false);
+                            foreach (MemoryItem m in extracted)
+                                _memory.RememberAsync(m, CancellationToken.None).GetAwaiter().GetResult();
+                        }
+                        catch { }
                     }
                 }).ConfigureAwait(false);
             }

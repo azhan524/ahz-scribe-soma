@@ -78,6 +78,13 @@ internal static class Program
             return Task.FromResult(new ActionResult { Ok = true, Output = "hello-file", AuditId = "audit-" + Calls });
         }
     }
+    sealed class ExtractModel : IBrainModel
+    {
+        public Task<string> CompleteAsync(string system, string user, CancellationToken ct)
+        {
+            return Task.FromResult("[{\"kind\":\"semantic\",\"key\":\"s2-extract\",\"value\":\"蓝鲸\",\"summary\":\"x\"},{\"kind\":\"episodic\",\"key\":\"s2-extract-ep\",\"value\":\"承诺\",\"summary\":\"y\"},{\"kind\":\"semantic\",\"key\":\"s2-extract-3\",\"value\":\"三\",\"summary\":\"z\"},{\"kind\":\"semantic\",\"key\":\"s2-extract-4\",\"value\":\"四\",\"summary\":\"w\"}]");
+        }
+    }
     sealed class RollbackModel : IToolCallingModel
     {
         public Task<BrainTurn> NextAsync(string system, IReadOnlyList<BrainTurnMessage> history, CancellationToken ct)
@@ -120,7 +127,8 @@ internal static class Program
             var runner = new AgentRunner(mem, new Model());
             string answer = runner.RunAsync("蓝鲸 是什么", CancellationToken.None).GetAwaiter().GetResult();
             bool agentOk = answer == "记忆命中";
-            var linkBody = new FakeBody();
+            var extract = new MemoryExtractor(new ExtractModel()).ExtractAsync("x", "audit-extract", CancellationToken.None).GetAwaiter().GetResult();
+            bool extractOk = extract.Count == 3 && extract.TrueForAll(x => x.SourceAuditId == "audit-extract") && extract.Exists(x => x.Kind == "episodic");            var linkBody = new FakeBody();
             var linkRunner = new ToolAgentRunner(mem, new RollbackModel(), linkBody);
             linkRunner.RunAsync("x", CancellationToken.None).GetAwaiter().GetResult();
             bool linkOk = linkBody.Requests.Count == 2 && linkBody.Requests[1].LinkedAuditId == "audit-1";
@@ -138,8 +146,8 @@ internal static class Program
                 && !policy.Check("AGENTS.md", out why)
                 && !policy.Check("devtools/bench/x.cs", out why)
                 && !policy.Check("../outside.txt", out why);
-            bool ok = memoryOk && episodeOk && s2Ok && pulseOk && agentOk && toolOk && modelOk && policyOk && linkOk && audit.Items.Count >= 2;
-            Console.WriteLine("S2 MEMORY: " + (s2Ok ? "PASS" : "FAIL"));
+            bool ok = memoryOk && episodeOk && s2Ok && extractOk && pulseOk && agentOk && toolOk && modelOk && policyOk && linkOk && audit.Items.Count >= 2;
+            Console.WriteLine("S2 MEMORY: " + (s2Ok ? "PASS" : "FAIL") + " extract=" + (extractOk ? "PASS" : "FAIL"));
             Console.WriteLine(ok ? "BRAIN MEMORY/PULSE: PASS" : "BRAIN MEMORY/PULSE: FAIL");
             if (!ok) Console.WriteLine("memory=" + memoryOk + " pulse=" + pulseOk + " agent=" + agentOk + " tool=" + toolOk + " episode=" + episodeOk + " model=" + modelOk + " policy=" + policyOk + " link=" + linkOk + " audit=" + audit.Items.Count);
             return ok ? 0 : 1;
