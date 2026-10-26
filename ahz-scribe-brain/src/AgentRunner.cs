@@ -14,6 +14,7 @@ namespace AhzScribe.Brain
     {
         readonly IMemoryStore _memory;
         readonly IBrainModel _model;
+        public string BodySummary { get; set; }
 
         public AgentRunner(IMemoryStore memory, IBrainModel model)
         {
@@ -34,6 +35,7 @@ namespace AhzScribe.Brain
                 memory = sb.ToString();
             }
             string system = "你是 Ahz Scribe。只根据用户输入和给出的记忆回答；记忆不足就说明不足。";
+            if (!string.IsNullOrEmpty(BodySummary)) system += "\\n" + (BodySummary.Length > 300 ? BodySummary.Substring(0, 300) : BodySummary);
             return await _model.CompleteAsync(system, memory + "\n用户：" + userText, ct).ConfigureAwait(false);
         }
     }

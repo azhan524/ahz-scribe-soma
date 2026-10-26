@@ -14,6 +14,7 @@ namespace AhzScribe.Face
     public sealed class FacePulseBody : IBodyStatusSource
     {
         public DateTime LastUserAt = DateTime.UtcNow;
+        readonly BodySensor _sensor = new BodySensor();
 
         public BodyStatus Snapshot()
         {

@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -30,6 +31,8 @@ namespace AhzScribe.Face
         readonly Button _send;
         readonly BrainHost _host;
         readonly FacePulseBody _pulseBody;
+        readonly BodySensor _sensor;
+        readonly System.Threading.Timer _bodyTimer;
         readonly PulseScheduler _pulse;
         readonly string _modelName;
         readonly string _sessionPath;
@@ -59,7 +62,11 @@ namespace AhzScribe.Face
             _pulse = new PulseScheduler(_pulseBody, _memory, new FacePulseAudit(AppendTrace, Path.Combine(_dataDir, "pulse.log")),
                 new FacePulseSink(OnPulse), new ModelPulseDecider(_memory, _host.Model));
             _pulse.Start(60000);
-            FormClosed += delegate { _pulse.Dispose(); };
+            _sensor = new BodySensor();
+            _bodyTimer = new System.Threading.Timer(delegate { SampleBody(); }, null, 0, 30000);
+            _sensor = new BodySensor();
+            _bodyTimer = new System.Threading.Timer(delegate { SampleBody(); }, null, 0, 30000);
+            FormClosed += delegate { _pulse.Dispose(); _bodyTimer.Dispose(); };
             _host.Policy = new SelfIterationPolicy();
             _host.Propose = delegate(BrainToolCall call, CancellationToken ct)
             {
@@ -480,6 +487,19 @@ namespace AhzScribe.Face
                 int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
                 string ep = st == null || string.IsNullOrEmpty(st.CurrentEpisode) ? "-" : st.CurrentEpisode;
                 _status.Text = "episode " + ep + "   memory " + mem + "   body " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body");
+            }
+            catch { }
+        }
+        void SampleBody()
+        {
+            try
+            {
+                BodyStatus s = _sensor.Snapshot();
+                FaceState st = FaceSession.LoadState(_sessionPath);
+                s.ActiveTask = st != null && !string.IsNullOrEmpty(st.ActiveTask);
+                string path = Path.Combine(_dataDir, "body_state.json");
+                File.WriteAllText(path, JsonSerializer.Serialize(s), new UTF8Encoding(false));
+                _host.BodySummary = _sensor.Summary(s);
             }
             catch { }
         }

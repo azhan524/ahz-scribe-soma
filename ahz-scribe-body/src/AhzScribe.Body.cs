@@ -97,6 +97,9 @@ namespace AhzScribe.Body
                     return result;
                 }
 
+                if (request.Tool == "rollback_self")
+                    await _audit.AppendAsync("snapshot", "rollback_self", "selected", "", request.Tier.ToString(),
+                        request.Args, request.Reason, ct).ConfigureAwait(false);
                 await _audit.AppendAsync("tier_decision", request.Tool, request.Tier.ToString(), "", request.Tier.ToString(),
                     request.Args, request.Reason, ct).ConfigureAwait(false);
                 if (request.Approved)
