@@ -186,6 +186,7 @@ namespace AhzScribe.Body
                     case "desktop_type": result.Output = DesktopType(request); break;
                     case "desktop_hotkey": result.Output = DesktopHotkey(request); break;
                     case "desktop_scroll": result.Output = DesktopScroll(request); break;
+                    case "desktop_scroll_loop": result.Output = DesktopScrollLoop(request, ct); break;
                     case "desktop_screenshot": result.Output = DesktopScreenshot(); break;
                     case "desktop_focus_window": result.Output = DesktopFocus(request); break;
                     case "desktop_window_state": result.Output = DesktopWindowState(request); break;
@@ -305,6 +306,31 @@ namespace AhzScribe.Body
                 Thread.Sleep(120);
             }
             return "scrolled " + times + " x " + delta;
+        }
+        string DesktopScrollLoop(ActionRequest r, CancellationToken ct)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("desktop_scroll_loop requires Full tier and Approved=true");
+            int minutes = 5;
+            if (r.Args.ContainsKey("minutes")) int.TryParse(Convert.ToString(r.Args["minutes"]), out minutes);
+            if (minutes < 1) minutes = 1;
+            if (minutes > 30) minutes = 30;
+            int seconds = 8;
+            if (r.Args.ContainsKey("interval_seconds")) int.TryParse(Convert.ToString(r.Args["interval_seconds"]), out seconds);
+            if (seconds < 3) seconds = 3;
+            if (seconds > 60) seconds = 60;
+            int delta = -120;
+            if (r.Args.ContainsKey("delta")) int.TryParse(Convert.ToString(r.Args["delta"]), out delta);
+            if (delta == 0) delta = -120;
+            DateTime end = DateTime.Now.AddMinutes(minutes);
+            int count = 0;
+            while (DateTime.Now < end && !ct.IsCancellationRequested)
+            {
+                mouse_event(0x0800, 0, 0, unchecked((uint)delta), UIntPtr.Zero);
+                count++;
+                if (ct.WaitHandle.WaitOne(TimeSpan.FromSeconds(seconds))) break;
+            }
+            return "scroll_loop " + count + " steps in " + minutes + "m";
         }
         string DesktopHotkey(ActionRequest r)
         {

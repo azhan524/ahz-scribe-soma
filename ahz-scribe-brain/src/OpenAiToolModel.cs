@@ -217,6 +217,7 @@ namespace AhzScribe.Brain
                 Fn("desktop_type", "输入文本（必须已批准）", new { text = "文本" }),
                 Fn("desktop_hotkey", "发送快捷键，如 ^s / %{F4}（必须已批准）", new { keys = "快捷键" }),
                 Fn("desktop_scroll", "鼠标滚轮滚动（必须已批准）", new { delta = -120, times = 1 }),
+                Fn("desktop_scroll_loop", "限时循环滚动（必须已批准）", new { minutes = 10, interval_seconds = 8, delta = -120 }),
                 Fn("desktop_screenshot", "截取主屏到 _screenshots", new { }),
                 Fn("desktop_uia_tree", "用 FlaUI 列出顶层 UIA 控件", new { }),
                 Fn("desktop_uia_find", "按名称/automation_id 查找 UIA 控件", new { name = "名称", automation_id = "" }),
