@@ -175,6 +175,7 @@ namespace AhzScribe.Body
                     case "desktop_active_window": result.Output = DesktopActiveWindow(); break;
                     case "desktop_click": result.Output = DesktopClick(request); break;
                     case "desktop_type": result.Output = DesktopType(request); break;
+                    case "desktop_hotkey": result.Output = DesktopHotkey(request); break;
                     case "desktop_screenshot": result.Output = DesktopScreenshot(); break;
                     case "desktop_focus_window": result.Output = DesktopFocus(request); break;
                     case "desktop_window_state": result.Output = DesktopWindowState(request); break;
@@ -277,6 +278,15 @@ namespace AhzScribe.Body
         [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint n, INPUT[] inputs, int cbSize);
         const uint INPUT_KEYBOARD = 1, KEYEVENTF_UNICODE = 0x0004, KEYEVENTF_KEYUP = 0x0002;
 
+        string DesktopHotkey(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("desktop_hotkey requires Full tier and Approved=true");
+            string keys = r.Args.ContainsKey("keys") ? Convert.ToString(r.Args["keys"]) : "";
+            if (string.IsNullOrWhiteSpace(keys)) throw new ArgumentException("keys is required");
+            SendKeys.SendWait(keys);
+            return "sent " + keys;
+        }
         string DesktopType(ActionRequest r)
         {
             if (r.Tier != PermissionTier.Full || !r.Approved)
