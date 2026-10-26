@@ -144,11 +144,13 @@ namespace AhzScribe.Face
             _tabs.TabPages.Add(settingsPage);
             var bottom = new Panel();
             bottom.Dock = DockStyle.Bottom;
-            bottom.Height = 80;
+            bottom.Height = 120;
             bottom.BackColor = Color.FromArgb(24, 26, 30);
 
             _input = new TextBox();
             _input.Dock = DockStyle.Fill;
+            _input.Multiline = true;
+            _input.ScrollBars = ScrollBars.Vertical;
             _input.Font = new Font("Microsoft YaHei UI", 10f);
             _input.BackColor = Color.FromArgb(38, 41, 48);
             _input.ForeColor = Color.White;
