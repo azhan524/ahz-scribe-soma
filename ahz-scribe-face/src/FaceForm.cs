@@ -501,6 +501,45 @@ namespace AhzScribe.Face
                 _nav[i].ForeColor = i == _tabs.SelectedIndex ? Color.White : Color.FromArgb(180, 188, 200);
             }
         }
+        string AuditPath()
+        {
+            string data = Environment.GetEnvironmentVariable("AHZ_BODY_DATA");
+            if (!string.IsNullOrEmpty(data)) return Path.Combine(data, "audit.jsonl");
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AhzScribe", "body", "audit.jsonl");
+        }
+
+        void HandleAudit(string args)
+        {
+            string path = AuditPath();
+            if (!File.Exists(path)) { AppendChat("Ahz", "审计文件不存在：" + path, "chat"); return; }
+            string[] lines = File.ReadAllLines(path, Encoding.UTF8);
+            string[] parts = (args ?? "").Split(new[] { ' ' }, 2);
+            string cmd = parts.Length > 0 ? parts[0].ToLowerInvariant() : "";
+            if (cmd == "tail")
+            {
+                int n = 20;
+                if (parts.Length > 1) int.TryParse(parts[1], out n);
+                if (n < 1) n = 20;
+                AppendChat("Ahz", string.Join("\n", lines.Skip(Math.Max(0, lines.Length - n))), "chat");
+                return;
+            }
+            if (cmd == "show")
+            {
+                string id = parts.Length > 1 ? parts[1].Trim() : "";
+                if (id.Length == 0) { AppendChat("Ahz", "用法：/audit show <audit_id>", "chat"); return; }
+                string hit = lines.FirstOrDefault(x => x.IndexOf(id, StringComparison.OrdinalIgnoreCase) >= 0);
+                AppendChat("Ahz", hit ?? "没有找到 audit_id：" + id, "chat");
+                return;
+            }
+            if (cmd == "export")
+            {
+                string outPath = Path.Combine(_dataDir, "audit-export.jsonl");
+                File.WriteAllLines(outPath, lines, new UTF8Encoding(false));
+                AppendChat("Ahz", "已导出 " + lines.Length + " 条到 " + outPath, "chat");
+                return;
+            }
+            AppendChat("Ahz", "用法：/audit tail [n] | /audit show <id> | /audit export", "chat");
+        }
         void SaveSettings()
         {
             _settings.BaseUrl = _setBase.Text.Trim();
@@ -572,9 +611,14 @@ namespace AhzScribe.Face
                 finally { _pulseBody.LastUserAt = saved; }
                 return;
             }
+            if (text.StartsWith("/audit", StringComparison.Ordinal))
+            {
+                HandleAudit(text.Substring(6).Trim());
+                return;
+            }
             if (text == "/help")
             {
-                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/intent <事>  记一个提醒意图\n/pulse  立即执行一次脉冲\n/stop  全局急停\n/resume  恢复\n/help  本帮助", "chat");
+                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/intent <事>  记一个提醒意图\n/pulse  立即执行一次脉冲\n/audit tail [n]  查看审计\n/audit show <id>  查看一条\n/audit export  导出到 _face-data\n/stop  全局急停\n/resume  恢复\n/help  本帮助", "chat");
                 return;
             }
             if (text == "/episode")
