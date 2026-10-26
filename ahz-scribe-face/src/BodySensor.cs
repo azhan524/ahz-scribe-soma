@@ -48,7 +48,7 @@ namespace AhzScribe.Face
                 s.ForegroundApp = s.ForegroundTitle;
             }
             catch { }
-            try { s.NetworkOnline = Environment.GetEnvironmentVariable("AHZ_FORCE_OFFLINE") != "1" && NetworkInterface.GetIsNetworkAvailable(); } catch { }
+            try { s.NetworkOnline = Environment.GetEnvironmentVariable("AHZ_FORCE_OFFLINE") != "1" && RealNetwork(); } catch { }
             try
             {
                 Process self = Process.GetCurrentProcess();
@@ -88,6 +88,27 @@ namespace AhzScribe.Face
             return s;
         }
 
+        static bool RealNetwork()
+        {
+            try
+            {
+                foreach (NetworkInterface ni in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (ni.OperationalStatus != OperationalStatus.Up) continue;
+                    if (ni.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
+                        ni.NetworkInterfaceType == NetworkInterfaceType.Tunnel) continue;
+                    string d = (ni.Description ?? "").ToLowerInvariant();
+                    if (d.Contains("virtual") || d.Contains("hyper-v") || d.Contains("tap") ||
+                        d.Contains("tun") || d.Contains("tailscale") || d.Contains("vpn") ||
+                        d.Contains("clash") || d.Contains("loopback")) continue;
+                    foreach (UnicastIPAddressInformation a in ni.GetIPProperties().UnicastAddresses)
+                        if (a.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork &&
+                            !System.Net.IPAddress.IsLoopback(a.Address)) return true;
+                }
+            }
+            catch { }
+            return false;
+        }
         public string Summary(BodyStatus s)
         {
             if (s == null) return "身体状态：未知";
