@@ -519,7 +519,11 @@ namespace AhzScribe.Face
             {
                 FaceState st = FaceSession.LoadState(_sessionPath);
                 if (st != null && !string.IsNullOrEmpty(st.ActiveTask)) return;
-                bool due = st != null && st.OpenIntents != null && st.OpenIntents.Any(x => x.Status == "open" || x.Status == "monitoring");
+                DateTime lastCheck = DateTime.MinValue;
+                if (st != null && !string.IsNullOrEmpty(st.LastIntentCheck)) DateTime.TryParse(st.LastIntentCheck, out lastCheck);
+                bool checkDue = (DateTime.Now - lastCheck).TotalMinutes >= 10;
+                bool due = checkDue && st != null && st.OpenIntents != null && st.OpenIntents.Any(x => x.Status == "open" || x.Status == "monitoring");
+                if (checkDue && st != null) { st.LastIntentCheck = DateTime.Now.ToString("o"); FaceSession.SaveState(_sessionPath, st); }
                 bool idle = _pulseBody.Snapshot().IdleSeconds >= 1800;
                 string type = due ? "intent_due" : (idle ? "body_event" : "timer");
                 FaceSession.SetPulseTrigger(_sessionPath, type, "scheduled");
@@ -544,6 +548,7 @@ namespace AhzScribe.Face
         void OnPulse(PulseEvent evt)
         {
             if (InvokeRequired) { BeginInvoke(new Action<PulseEvent>(OnPulse), evt); return; }
+            if (!string.IsNullOrEmpty(evt.IntentId)) FaceSession.CloseIntent(_sessionPath, evt.IntentId, "done");
             AppendChat("Ahz", evt.Summary ?? "提醒", "chat");
         }
         void JumpTo(FaceMessage m)

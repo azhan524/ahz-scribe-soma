@@ -46,6 +46,7 @@ namespace AhzScribe.Face
         public List<OpenIntent> OpenIntents { get; set; }
         public PulseTrigger LastPulseTrigger { get; set; }
         public string LastDriveDate { get; set; }
+        public string LastIntentCheck { get; set; }
     }
 
     public static class FaceSession
