@@ -185,6 +185,7 @@ namespace AhzScribe.Body
                     case "desktop_click": result.Output = DesktopClick(request); break;
                     case "desktop_type": result.Output = DesktopType(request); break;
                     case "desktop_hotkey": result.Output = DesktopHotkey(request); break;
+                    case "desktop_scroll": result.Output = DesktopScroll(request); break;
                     case "desktop_screenshot": result.Output = DesktopScreenshot(); break;
                     case "desktop_focus_window": result.Output = DesktopFocus(request); break;
                     case "desktop_window_state": result.Output = DesktopWindowState(request); break;
@@ -287,6 +288,24 @@ namespace AhzScribe.Body
         [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint n, INPUT[] inputs, int cbSize);
         const uint INPUT_KEYBOARD = 1, KEYEVENTF_UNICODE = 0x0004, KEYEVENTF_KEYUP = 0x0002;
 
+        string DesktopScroll(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("desktop_scroll requires Full tier and Approved=true");
+            int delta = 0;
+            if (r.Args.ContainsKey("delta")) int.TryParse(Convert.ToString(r.Args["delta"]), out delta);
+            if (delta == 0) delta = -120;
+            int times = 1;
+            if (r.Args.ContainsKey("times")) int.TryParse(Convert.ToString(r.Args["times"]), out times);
+            if (times < 1) times = 1;
+            if (times > 20) times = 20;
+            for (int i = 0; i < times; i++)
+            {
+                mouse_event(0x0800, 0, 0, unchecked((uint)delta), UIntPtr.Zero);
+                Thread.Sleep(120);
+            }
+            return "scrolled " + times + " x " + delta;
+        }
         string DesktopHotkey(ActionRequest r)
         {
             if (r.Tier != PermissionTier.Full || !r.Approved)
