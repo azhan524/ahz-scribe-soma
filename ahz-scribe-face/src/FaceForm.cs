@@ -31,6 +31,38 @@ namespace AhzScribe.Face
         readonly string _dataDir;
         public FaceUiHost(string dataDir) { _dataDir = dataDir; }
 
+        public string QueryAudit(string filter)
+        {
+            string path = Environment.GetEnvironmentVariable("AHZ_AUDIT_PATH");
+            if (string.IsNullOrEmpty(path))
+                path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "AhzScribe", "audit", "audit.jsonl");
+            var rows = new List<object>();
+            if (!File.Exists(path)) return "[]";
+            foreach (string line in File.ReadLines(path).Reverse().Take(200).Reverse())
+            {
+                if (!string.IsNullOrEmpty(filter) && line.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                try
+                {
+                    using (var doc = System.Text.Json.JsonDocument.Parse(line))
+                    {
+                        var r = doc.RootElement;
+                        rows.Add(new
+                        {
+                            ts = r.TryGetProperty("ts", out var ts) ? ts.GetString() : "",
+                            span = r.TryGetProperty("span", out var sp) ? sp.GetString() : "",
+                            tool = r.TryGetProperty("tool", out var tl) ? tl.GetString() : "",
+                            decision = r.TryGetProperty("decision", out var dc) ? dc.GetString() : "",
+                            result = r.TryGetProperty("result", out var rs) ? rs.GetString() : "",
+                            auditId = r.TryGetProperty("audit_id", out var ai) ? ai.GetString() : "",
+                            fallback = r.TryGetProperty("fallback", out var fb) && fb.ValueKind == System.Text.Json.JsonValueKind.True,
+                            raw = line
+                        });
+                    }
+                }
+                catch { }
+            }
+            return System.Text.Json.JsonSerializer.Serialize(rows);
+        }
         public string QueryPulses(string filter)
         {
             string p = Path.Combine(_dataDir, "pulse.log");
@@ -929,17 +961,18 @@ namespace AhzScribe.Face
             try
             {
                 var sb = new StringBuilder();
-                sb.Append("<pre>");
-                string body = AuditPath();
-                if (File.Exists(body))
-                    foreach (string l in File.ReadLines(body).Reverse().Take(100).Reverse()) sb.Append(System.Net.WebUtility.HtmlEncode(l)).Append("\n");
-                string face = FaceAudit.PathFor(_dataDir);
-                if (File.Exists(face))
-                    foreach (string l in File.ReadLines(face).Reverse().Take(50).Reverse()) sb.Append(System.Net.WebUtility.HtmlEncode(l)).Append("\n");
-                if (sb.Length == 7) sb.Append("没有审计记录");
-                sb.Append("</pre>");
+                sb.Append("<!doctype html><html><head><meta charset='utf-8'><style>");
+                sb.Append(":root{--bg:").Append(Css(Theme.BgPrimary)).Append(";--bg2:").Append(Css(Theme.BgSecondary)).Append(";--bg3:").Append(Css(Theme.BgTertiary)).Append(";--line:").Append(Css(Theme.BorderSubtle)).Append(";--text:").Append(Css(Theme.TextPrimary)).Append(";--muted:").Append(Css(Theme.TextSecondary)).Append(";--weak:").Append(Css(Theme.TextTertiary)).Append(";--info:").Append(Css(Theme.StateInfo)).Append(";--success:").Append(Css(Theme.StateSuccess)).Append(";--danger:").Append(Css(Theme.StateDanger)).Append(";--warning:").Append(Css(Theme.StateWarning)).Append(";}");
+                sb.Append("body{margin:0;background:var(--bg);color:var(--text);font:13px 'Microsoft YaHei UI','Segoe UI',sans-serif;}header{padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;position:sticky;top:0;z-index:2;}header span{color:var(--muted);font:12px 'Microsoft YaHei UI';}header input{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:6px 8px;border-radius:4px;font:12px 'Microsoft YaHei UI';}table{width:100%;border-collapse:collapse;font:12px Consolas,monospace;}th{text-align:left;color:var(--muted);font-weight:normal;background:var(--bg3);padding:6px;}td{border-bottom:1px solid var(--line);padding:5px 6px;vertical-align:top;}tr:hover{background:var(--bg2);}tr.blocked td:first-child{border-left:3px solid var(--danger);} .danger{color:var(--danger);} .ok{color:var(--success);} .warn{color:var(--warning);} .empty{color:var(--weak);font-style:italic;padding:18px 12px;}");
+                sb.Append("</style></head><body><header><span>审计</span><input id='q' placeholder='搜索 tool / args / span'><span id='cnt'></span></header><div id='list'></div>");
+                sb.Append("<script>const KEY='ahzscribe.ui.audit';let rows=[];function esc(s){return String(s==null?'':s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));}");
+                sb.Append("function render(){let q=(document.getElementById('q').value||'').toLowerCase();let list=document.getElementById('list');list.innerHTML='';let n=0;rows.forEach(function(r){if(q&&(r.raw||'').toLowerCase().indexOf(q)<0)return;n++;let cls=r.decision==='blocked'?'row blocked':'';let fb=r.fallback?' <span class=\"warn\">[备用]</span>':'';let d=document.createElement('div');d.className=cls;d.innerHTML='<table><tr><td>'+esc(r.ts)+'</td><td>'+esc(r.span)+'</td><td>'+esc(r.tool)+'</td><td class=\"'+(r.decision==='blocked'?'danger':(r.decision==='allowed'?'ok':'')) +'\">'+esc(r.decision)+fb+'</td><td>'+esc(r.result)+'</td></tr></table>';list.appendChild(d);});if(n===0)list.innerHTML='<div class=\"empty\">没有匹配的审计</div>';document.getElementById('cnt').textContent=n+' 条';}");
+                sb.Append("async function load(){try{rows=JSON.parse(await chrome.webview.hostObjects.host.QueryAudit(''));let saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}document.getElementById('q').value=saved.q||'';render();if(saved.scroll)setTimeout(()=>document.getElementById('list').scrollTop=saved.scroll,50);}catch(e){document.getElementById('list').innerHTML='<div class=\"empty\">'+esc(e)+'</div>';}}");
+                sb.Append("document.getElementById('q').addEventListener('input',function(){render();try{localStorage.setItem(KEY,JSON.stringify({q:this.value,scroll:document.getElementById('list').scrollTop}));}catch(e){}});load();");
+                sb.Append("</script></body></html>");
                 await _web.EnsureCoreWebView2Async(null);
-                _web.CoreWebView2.NavigateToString(HtmlPage("审计", sb.ToString()));
+                try { _web.CoreWebView2.AddHostObjectToScript("host", new FaceUiHost(_dataDir)); } catch { }
+                _web.CoreWebView2.NavigateToString(sb.ToString());
             }
             catch (Exception ex) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), ex + "\n"); } catch { } }
         }
@@ -1020,27 +1053,6 @@ namespace AhzScribe.Face
                 if (InvokeRequired) { BeginInvoke(new Action(UpdateStatus)); return; }
                 FaceState st = FaceSession.LoadState(_sessionPath);
                 BodyStatus b = _sensor == null ? new BodyStatus() : _sensor.Snapshot();
-                if (_topIdle != null)
-                {
-                    string fore = b.ForegroundApp ?? ""; if (fore.Length > 26) fore = fore.Substring(0, 26) + "…";
-                    _topIdle.Text = " 空闲 " + (b.IdleSeconds / 60) + " 分";
-                    _topFore.Text = " 前台 " + fore;
-                    _topDisk.Text = "磁盘 " + b.DiskFreeGb.ToString("F0") + "G ";
-                    string em = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AhzScribe", "state", "EMERGENCY_STOP");
-                    _topDot.ForeColor = File.Exists(em) ? Theme.DangerButtonBg : (b.AgentProcessAlive ? Theme.StateInfo : Theme.StateNeutral);
-                    if (_tray != null) _tray.Text = "Ahz Scribe · " + (b.AgentProcessAlive ? "运行中" : "休眠");
-                }
-                if (_stateFocus != null)
-                {
-                    _stateFocus.Text = "当前焦点\n" + (st == null || string.IsNullOrEmpty(st.CurrentFocus) ? "—" : st.CurrentFocus);
-                    int oi = st == null || st.OpenIntents == null ? 0 : st.OpenIntents.Count(x => x.Status == "open" || x.Status == "monitoring");
-                    string first = st == null || st.OpenIntents == null ? "" : st.OpenIntents.Where(x => x.Status == "open" || x.Status == "monitoring").Select(x => x.Text).FirstOrDefault();
-                    _stateIntents.Text = "未完成意图 " + oi + (string.IsNullOrEmpty(first) ? "" : "\n" + first);
-                    _stateBody.Text = "身体\n空闲 " + (b.IdleSeconds / 60) + " 分 · " + (b.NetworkOnline ? "在线" : "离线");
-                    _statePulse.Text = "最近脉冲\n" + (st == null || st.LastPulseTrigger == null ? "—" : st.LastPulseTrigger.Type + " " + st.LastPulseTrigger.ReceivedAt);
-                    string mood = st != null && !string.IsNullOrEmpty(st.ActiveTask) ? "专注" : (st != null && string.Equals(st.LastPulseResult, "none", StringComparison.OrdinalIgnoreCase) ? "安静" : "平静");
-                    _stateMood.Text = "情绪\n" + mood;
-                }
                 _uiBus.Publish(new UiSnapshot { State = st, Body = b });
                 int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
                 var sb = new StringBuilder();
