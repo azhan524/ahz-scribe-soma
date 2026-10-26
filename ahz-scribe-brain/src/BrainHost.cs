@@ -18,6 +18,7 @@ namespace AhzScribe.Brain
 
         public Func<BrainToolCall, CancellationToken, Task<bool>> Approval { get; set; }
         public Action<string> Trace { get; set; }
+        public IBrainModel Model { get { return _model; } }
         public SelfIterationPolicy Policy { get; set; }
         public Func<BrainToolCall, CancellationToken, Task<bool>> Propose { get; set; }
 

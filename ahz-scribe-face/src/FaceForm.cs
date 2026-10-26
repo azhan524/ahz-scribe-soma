@@ -55,7 +55,7 @@ namespace AhzScribe.Face
             _host.Trace = delegate(string line) { AppendTrace(line); };
             _pulseBody = new FacePulseBody();
             _pulse = new PulseScheduler(_pulseBody, _memory, new FacePulseAudit(AppendTrace),
-                new FacePulseSink(OnPulse), new IntentPulseDecider(_memory));
+                new FacePulseSink(OnPulse), new ModelPulseDecider(_memory, _host.Model));
             _pulse.Start(60000);
             FormClosed += delegate { _pulse.Dispose(); };
             _host.Policy = new SelfIterationPolicy();
