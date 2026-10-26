@@ -485,6 +485,17 @@ namespace AhzScribe.Face
             FaceSession.SetFocus(_sessionPath, text);
             UpdateTitle(text);
             AppendChat("你", text, "chat");
+            if (text == "/help")
+            {
+                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/help  本帮助", "chat");
+                return;
+            }
+            if (text == "/episode")
+            {
+                FaceState st = FaceSession.LoadState(_sessionPath);
+                AppendChat("Ahz", st == null ? "还没有时间线状态" : "episode " + st.CurrentEpisode + "\nmessage_count " + st.MessageCount + "\nfocus " + (st.CurrentFocus ?? ""), "chat");
+                return;
+            }
             if (text.StartsWith("/remember ", StringComparison.Ordinal))
             {
                 string[] p = text.Split(new[] { ' ' }, 4);
