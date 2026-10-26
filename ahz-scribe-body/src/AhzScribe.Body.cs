@@ -560,30 +560,43 @@ namespace AhzScribe.Body
         static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
         string DesktopUiaTree()
         {
-            var lines = new List<string>();
-            using (var automation = new UIA3Automation())
+            string output = "";
+            string error = "";
+            Thread t = new Thread(delegate()
             {
-                AutomationElement desktop = automation.GetDesktop();
-                var children = desktop.FindAllChildren();
-                if (children.Length == 0) children = desktop.FindAllDescendants();
-                foreach (AutomationElement e in children)
+                try
                 {
-                    try
+                    var lines = new List<string>();
+                    using (var automation = new UIA3Automation())
                     {
-                        string name = e.Name ?? "";
-                        string id = e.AutomationId ?? "";
-                        string type = e.ControlType.ToString();
-                        if (name.Length == 0 && id.Length == 0) continue;
-                        int pid = 0;
-                        try { pid = e.Properties.ProcessId.Value; } catch { }
-                        lines.Add(pid + " | " + type + " | " + id + " | " + name);
-                        if (lines.Count >= 80) break;
+                        AutomationElement desktop = automation.GetDesktop();
+                        var children = desktop.FindAllChildren();
+                        lines.Add("children=" + children.Length);
+                        foreach (AutomationElement e in children)
+                        {
+                            try
+                            {
+                                string name = ""; string id = ""; string type = "?"; string cls = ""; int pid = 0;
+                                try { name = e.Name ?? ""; } catch { }
+                                try { id = e.AutomationId ?? ""; } catch { }
+                                try { cls = e.ClassName ?? ""; } catch { }
+                                try { type = e.ControlType.ToString(); } catch { }
+                                try { pid = e.Properties.ProcessId.Value; } catch { }
+                                lines.Add(pid + " | " + type + " | " + cls + " | " + id + " | " + name);
+                                if (lines.Count >= 80) break;
+                            }
+                            catch (Exception ex) { lines.Add("err " + ex.GetType().Name); }
+                        }
                     }
-                    catch { }
+                    output = string.Join("\n", lines.ToArray());
                 }
-            }
-            if (lines.Count == 0) lines.Add("uia children=0");
-            return string.Join("\n", lines.ToArray());
+                catch (Exception ex) { error = ex.GetType().Name + ": " + ex.Message; }
+            });
+            t.SetApartmentState(ApartmentState.STA);
+            t.IsBackground = true;
+            t.Start();
+            t.Join(8000);
+            return error.Length > 0 ? error : (output.Length > 0 ? output : "uia empty");
         }
         string BrowserOpen(ActionRequest r)
         {
