@@ -8,6 +8,7 @@ obj/
 *.new
 *.log
 *.err
+ui-*.png
 
 # Runtime data and secrets
 _body-data/
