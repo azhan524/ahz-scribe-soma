@@ -177,6 +177,7 @@ namespace AhzScribe.Body
                     case "browser_read": result.Output = NetworkFetch(request, ct); break;
                     case "desktop_list_windows": result.Output = DesktopWindows(); break;
                     case "process_list": result.Output = ProcessList(); break;
+                    case "app_list": result.Output = AppList(); break;
                     case "process_kill": result.Output = ProcessKill(request); break;
                     case "build_self": result.Output = BuildSelf(request); break;
                     case "clipboard_get": result.Output = ClipboardGet(); break;
@@ -560,6 +561,22 @@ namespace AhzScribe.Body
                 p.Kill();
                 return "killed " + pid + " " + p.ProcessName;
             }
+        }
+        string AppList()
+        {
+            var lines = new List<string>();
+            foreach (Process p in Process.GetProcesses())
+            {
+                try
+                {
+                    if (p.MainWindowHandle == IntPtr.Zero || string.IsNullOrEmpty(p.MainWindowTitle)) continue;
+                    lines.Add(p.Id + " | " + p.ProcessName + " | " + p.MainWindowTitle);
+                }
+                catch { }
+                if (lines.Count >= 120) break;
+            }
+            lines.Sort(StringComparer.OrdinalIgnoreCase);
+            return string.Join("\n", lines.ToArray());
         }
         string ProcessList()
         {
