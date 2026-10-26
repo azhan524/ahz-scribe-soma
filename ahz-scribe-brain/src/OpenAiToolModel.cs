@@ -217,6 +217,8 @@ namespace AhzScribe.Brain
                 Fn("desktop_type", "输入文本（必须已批准）", new { text = "文本" }),
                 Fn("desktop_hotkey", "发送快捷键，如 ^s / %{F4}（必须已批准）", new { keys = "快捷键" }),
                 Fn("desktop_screenshot", "截取主屏到 _screenshots", new { }),
+                Fn("browser_open", "用默认浏览器打开 URL（必须已批准）", new { url = "https://..." }),
+                Fn("browser_read", "读取 URL 的 HTML 文本", new { url = "https://..." }),
                 Fn("clipboard_get", "读取剪贴板文本", new { }),
                 Fn("clipboard_set", "写入剪贴板文本（必须已批准）", new { text = "文本" }),
                 Fn("desktop_focus_window", "按标题聚焦窗口（必须已批准）", new { title = "标题" }),

@@ -166,6 +166,8 @@ namespace AhzScribe.Body
                     case "tail_file": result.Output = TailFile(request); break;
                     case "glob": result.Output = Glob(request); break;
                     case "network_fetch": result.Output = NetworkFetch(request, ct); break;
+                    case "browser_open": result.Output = BrowserOpen(request); break;
+                    case "browser_read": result.Output = NetworkFetch(request, ct); break;
                     case "desktop_list_windows": result.Output = DesktopWindows(); break;
                     case "process_list": result.Output = ProcessList(); break;
                     case "process_kill": result.Output = ProcessKill(request); break;
@@ -551,6 +553,16 @@ namespace AhzScribe.Body
         }
 
         static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        string BrowserOpen(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved)
+                throw new UnauthorizedAccessException("browser_open requires Full tier and Approved=true");
+            string url = r.Args.ContainsKey("url") ? Convert.ToString(r.Args["url"]) : "";
+            if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("url must be http/https");
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            return "opened " + url;
+        }
         string NetworkFetch(ActionRequest r, CancellationToken ct)
         {
             if (r.Tier != PermissionTier.Full || !r.Approved)
