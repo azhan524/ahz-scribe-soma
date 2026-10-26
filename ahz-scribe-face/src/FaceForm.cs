@@ -17,6 +17,7 @@ namespace AhzScribe.Face
         readonly RichTextBox _output;
         readonly TextBox _trace;
         readonly TextBox _memoryView;
+        readonly TextBox _memoryFilter;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe;
         readonly TabControl _tabs;
         readonly Label _status;
@@ -94,6 +95,14 @@ namespace AhzScribe.Face
             _memoryView.BorderStyle = BorderStyle.None;
             _memoryView.Font = new Font("Consolas", 9f);
 
+            _memoryFilter = new TextBox();
+            _memoryFilter.Dock = DockStyle.Top;
+            _memoryFilter.BackColor = Color.FromArgb(38, 41, 48);
+            _memoryFilter.ForeColor = Color.White;
+            _memoryFilter.BorderStyle = BorderStyle.FixedSingle;
+            _memoryFilter.PlaceholderText = "搜索记忆...";
+            _memoryFilter.TextChanged += delegate { RenderMemory(); };
+
             _setBase = MakeSettingBox(_settings.BaseUrl);
             _setModel = MakeSettingBox(_settings.Model);
             _setWorkspace = MakeSettingBox(_settings.Workspace);
@@ -114,7 +123,11 @@ namespace AhzScribe.Face
             tracePage.Controls.Add(_trace);
             var memoryPage = new TabPage("记忆");
             memoryPage.BackColor = Color.FromArgb(24, 26, 30);
-            memoryPage.Controls.Add(_memoryView);
+            var memoryPanel = new Panel();
+            memoryPanel.Dock = DockStyle.Fill;
+            memoryPanel.Controls.Add(_memoryView);
+            memoryPanel.Controls.Add(_memoryFilter);
+            memoryPage.Controls.Add(memoryPanel);
             var settingsPage = new TabPage("设置");
             settingsPage.BackColor = Color.FromArgb(24, 26, 30);
             var table = new TableLayoutPanel();
@@ -349,6 +362,9 @@ namespace AhzScribe.Face
             {
                 List<MemoryItem> all = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult();
                 var sb = new System.Text.StringBuilder();
+                string filter = _memoryFilter == null ? "" : _memoryFilter.Text.Trim();
+                if (filter.Length > 0)
+                    all = all.Where(x => ((x.Key ?? "") + " " + (x.Value ?? "") + " " + (x.Kind ?? "")).IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
                 foreach (MemoryItem m in all.Skip(Math.Max(0, all.Count - 30)))
                     sb.AppendLine("[" + (m.Kind ?? "") + "] " + (m.Key ?? "") + " = " + Cut(m.Value, 200));
                 _memoryView.Text = sb.ToString();
