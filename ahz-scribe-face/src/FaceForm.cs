@@ -533,8 +533,14 @@ namespace AhzScribe.Face
             }
             if (text == "/pulse")
             {
-                PulseDecision d = _pulse.TickAsync(CancellationToken.None).GetAwaiter().GetResult();
-                AppendChat("Ahz", "pulse: " + (d == null ? "null" : d.Action + " / " + (d.Reason ?? "")), "chat");
+                DateTime saved = _pulseBody.LastUserAt;
+                _pulseBody.LastUserAt = DateTime.UtcNow.AddSeconds(-701);
+                try
+                {
+                    PulseDecision d = _pulse.TickAsync(CancellationToken.None).GetAwaiter().GetResult();
+                    AppendChat("Ahz", "pulse: " + (d == null ? "null" : d.Action + " / " + (d.Reason ?? "")), "chat");
+                }
+                finally { _pulseBody.LastUserAt = saved; }
                 return;
             }
             if (text == "/help")
