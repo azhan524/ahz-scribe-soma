@@ -185,6 +185,7 @@ namespace AhzScribe.Face
         string _auditFocus;
         readonly Label _stateFocus, _stateIntents, _stateBody, _statePulse, _stateMood;
         Panel _hintPanel;
+        Icon _trayIcon;
         readonly TextBox _taskView;
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
         readonly NotifyIcon _tray;
@@ -1105,6 +1106,26 @@ namespace AhzScribe.Face
             l.AutoEllipsis = true;
             return l;
         }
+        void SetTrayColor(Color color)
+        {
+            try
+            {
+                using (var bmp = new Bitmap(16, 16))
+                using (Graphics g = Graphics.FromImage(bmp))
+                {
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                    g.Clear(Color.Transparent);
+                    using (Brush b = new SolidBrush(color)) g.FillEllipse(b, 3, 3, 10, 10);
+                    IntPtr h = bmp.GetHicon();
+                    Icon next = Icon.FromHandle(h);
+                    Icon old = _trayIcon;
+                    _trayIcon = next;
+                    _tray.Icon = next;
+                    if (old != null) old.Dispose();
+                }
+            }
+            catch { }
+        }
         void ApplyUiSnapshot(UiSnapshot s)
         {
             if (s == null) return;
@@ -1125,6 +1146,7 @@ namespace AhzScribe.Face
                 _topDisk.Text = "磁盘 " + b.DiskFreeGb.ToString("F0") + "G ";
                 string em = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AhzScribe", "state", "EMERGENCY_STOP");
                 _topDot.ForeColor = File.Exists(em) ? Theme.StateDanger : (b.AgentProcessAlive ? Theme.StateInfo : Theme.StateNeutral);
+                SetTrayColor(_topDot.ForeColor);
                 if (_tray != null) _tray.Text = "Ahz Scribe · " + (b.AgentProcessAlive ? "运行中" : "休眠");
             }
             if (_stateFocus != null)
