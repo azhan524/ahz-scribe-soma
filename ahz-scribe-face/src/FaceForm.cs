@@ -234,7 +234,7 @@ namespace AhzScribe.Face
             _memory = new MemoryStore(Path.Combine(_dataDir, "memory.jsonl"));
             _host = new BrainHost(_memory, CreateModel(out _modelName));
             _host.Trace = delegate(string line) { AppendTrace(line); };
-            try { FaceAudit.Append(_dataDir, "startup", "startup", "ok", "face", "startup"); } catch { }
+            RunStartupCheck();
             _uiBus.Changed += ApplyUiSnapshot;
             _pulseBody = new FacePulseBody();
             _pulse = new PulseScheduler(_pulseBody, _memory, new FacePulseAudit(AppendTrace, Path.Combine(_dataDir, "pulse.log")),
@@ -1019,6 +1019,25 @@ namespace AhzScribe.Face
                 _auditView.Text = sb.Length == 0 ? "没有审计记录" : sb.ToString();
             }
             catch (Exception ex) { _auditView.Text = ex.Message; }
+        }
+        void RunStartupCheck()
+        {
+            string result = "ok";
+            try
+            {
+                string auditDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "AhzScribe", "audit");
+                Directory.CreateDirectory(auditDir);
+                string probe = Path.Combine(auditDir, ".write_probe_" + Guid.NewGuid().ToString("N"));
+                File.WriteAllText(probe, "1");
+                File.Delete(probe);
+            }
+            catch (Exception ex) { result = "audit_unwritable:" + ex.Message; }
+            try { FaceAudit.Append(_dataDir, "startup", "startup", result, "face", "startup"); } catch { }
+            if (result != "ok")
+            {
+                AppendChat("Ahz", "启动自检失败：" + result, "error");
+                AppendTrace("[startup] " + result);
+            }
         }
         static GroupBox MakeGroup(string title)
         {
