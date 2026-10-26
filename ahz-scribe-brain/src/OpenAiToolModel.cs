@@ -95,8 +95,35 @@ namespace AhzScribe.Brain
 
         public async Task<string> CompleteAsync(string system, string user, CancellationToken ct)
         {
-            BrainTurn t = await NextAsync(system, new[] { new BrainTurnMessage { Role = "user", Content = user } }, ct).ConfigureAwait(false);
-            return t == null ? "" : (t.Text ?? "");
+            var messages = new List<object>
+            {
+                new { role = "system", content = system },
+                new { role = "user", content = user ?? "" }
+            };
+            var request = new
+            {
+                model = _o.Model,
+                messages = messages,
+                temperature = _o.Temperature,
+                max_tokens = _o.MaxTokens
+            };
+            string url = _o.BaseUrl.TrimEnd('/');
+            if (!url.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+                url += "/chat/completions";
+            using (var req = new HttpRequestMessage(HttpMethod.Post, url))
+            {
+                req.Content = new StringContent(JsonSerializer.Serialize(request), Encoding.UTF8, "application/json");
+                if (!string.IsNullOrEmpty(_o.ApiKey))
+                    req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _o.ApiKey);
+                using (HttpResponseMessage resp = await _http.SendAsync(req, ct).ConfigureAwait(false))
+                {
+                    string body = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                    if (!resp.IsSuccessStatusCode)
+                        throw new HttpRequestException("model HTTP " + (int)resp.StatusCode + ": " + body);
+                    BrainTurn turn = ParseResponse(body);
+                    return turn == null ? "" : (turn.Text ?? "");
+                }
+            }
         }
 
         public static BrainTurn ParseResponse(string json)

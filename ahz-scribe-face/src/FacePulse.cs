@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AhzScribe.Brain;
 using AhzScribe.Contracts;
 
@@ -99,25 +100,56 @@ namespace AhzScribe.Face
                 string system = "你是 Ahz Scribe 的脉冲决策器。行动空间只有 none 和 message。没有明确、必要、不打扰的理由就返回 none；不要寒暄，不要为了说话而说话。如果最近记忆里有明确的待办、未完成事项或用户要求提醒，且现在适合，可以 message。只输出 JSON：{\"action\":\"none|message\",\"text\":\"\",\"reason\":\"\"}。";
                 string user = "当前空闲秒数：" + (body == null ? 0 : body.IdleSeconds) + "\n最近记忆：\n" + sb.ToString();
                 string raw = await _model.CompleteAsync(system, user, ct).ConfigureAwait(false);
-                int a = raw.IndexOf('{');
-                int b = raw.LastIndexOf('}');
-                if (a < 0 || b <= a) return new PulseDecision { Action = "none", Reason = "unparseable" };
-                using (JsonDocument doc = JsonDocument.Parse(raw.Substring(a, b - a + 1)))
-                {
-                    JsonElement root = doc.RootElement;
-                    string action = root.TryGetProperty("action", out JsonElement ar) ? (ar.GetString() ?? "none") : "none";
-                    string text = root.TryGetProperty("text", out JsonElement tr) ? (tr.GetString() ?? "") : "";
-                    string reason = root.TryGetProperty("reason", out JsonElement rr) ? (rr.GetString() ?? "") : "";
-                    if (!string.Equals(action, "message", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(text))
-                        return new PulseDecision { Action = "none", Reason = reason.Length == 0 ? "model_none" : reason };
-                    if (text.Length > 300) text = text.Substring(0, 300);
-                    return new PulseDecision { Action = "message", Text = text, Reason = "model:" + reason };
-                }
+                return ParseDecision(raw);
             }
             catch (Exception ex)
             {
                 return new PulseDecision { Action = "none", Reason = "model_error:" + ex.Message };
             }
+        }
+
+        PulseDecision ParseDecision(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return new PulseDecision { Action = "none", Reason = "empty" };
+            int a = raw.IndexOf('{');
+            int b = raw.LastIndexOf('}');
+            if (a >= 0 && b > a)
+            {
+                try
+                {
+                    using (JsonDocument doc = JsonDocument.Parse(raw.Substring(a, b - a + 1)))
+                    {
+                        JsonElement root = doc.RootElement;
+                        string action = root.TryGetProperty("action", out JsonElement ar) ? (ar.GetString() ?? "none") : "none";
+                        string text = root.TryGetProperty("text", out JsonElement tr) ? (tr.GetString() ?? "") : "";
+                        string reason = root.TryGetProperty("reason", out JsonElement rr) ? (rr.GetString() ?? "") : "";
+                        if (string.Equals(action, "message", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(text))
+                        {
+                            if (text.Length > 300) text = text.Substring(0, 300);
+                            return new PulseDecision { Action = "message", Text = text, Reason = "model:" + reason };
+                        }
+                        return new PulseDecision { Action = "none", Reason = reason.Length == 0 ? "model_none" : reason };
+                    }
+                }
+                catch { }
+            }
+
+            Match am = Regex.Match(raw, "\"action\"\\s*:\\s*\"(none|message)\"", RegexOptions.IgnoreCase);
+            if (am.Success && am.Groups[1].Value.Equals("message", StringComparison.OrdinalIgnoreCase))
+            {
+                Match tm = Regex.Match(raw, "\"text\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"");
+                if (tm.Success)
+                {
+                    string text = Regex.Unescape(tm.Groups[1].Value);
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        if (text.Length > 300) text = text.Substring(0, 300);
+                        return new PulseDecision { Action = "message", Text = text, Reason = "model:loose_json" };
+                    }
+                }
+            }
+            if (am.Success) return new PulseDecision { Action = "none", Reason = "model_none" };
+            return new PulseDecision { Action = "none", Reason = "unparseable" };
         }
     }
 
