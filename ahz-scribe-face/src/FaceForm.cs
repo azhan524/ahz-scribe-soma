@@ -98,6 +98,7 @@ namespace AhzScribe.Face
             _setModel = MakeSettingBox(_settings.Model);
             _setWorkspace = MakeSettingBox(_settings.Workspace);
             _setPipe = MakeSettingBox(_settings.BodyPipe);
+            _setWorkspace.PlaceholderText = "工作区路径；留空则不能自我迭代";
 
             _tabs = new TabControl();
             _tabs.Dock = DockStyle.Fill;
@@ -393,7 +394,7 @@ namespace AhzScribe.Face
             _settings.Workspace = _setWorkspace.Text.Trim();
             _settings.BodyPipe = _setPipe.Text.Trim();
             _settings.Save(_dataDir);
-            AppendChat("Ahz", "设置已保存，重启 face 后生效", "chat");
+            AppendChat("Ahz", "设置已保存，重启 face 后生效" + (string.IsNullOrEmpty(_settings.Workspace) ? "；工作区为空，propose_upgrade 会被拒绝" : ""), "chat");
         }
         void UpdateTitle(string focus)
         {
