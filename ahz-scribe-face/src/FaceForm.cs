@@ -184,6 +184,7 @@ namespace AhzScribe.Face
         readonly Panel _htmlHost;
         string _auditFocus;
         readonly Label _stateFocus, _stateIntents, _stateBody, _statePulse, _stateMood;
+        Panel _hintPanel;
         readonly TextBox _taskView;
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
         readonly NotifyIcon _tray;
@@ -632,6 +633,15 @@ namespace AhzScribe.Face
             auditBtn.BackColor = Theme.BgTertiary;
             auditBtn.ForeColor = Theme.TextPrimary;
             auditBtn.Click += delegate { _tabs.SelectedIndex = 3; UpdateNav(); };
+            _hintPanel = new Panel();
+            _hintPanel.Dock = DockStyle.Bottom;
+            _hintPanel.Height = 30;
+            _hintPanel.BackColor = Theme.BgTertiary;
+            _hintPanel.Visible = false;
+            var hint = new Label(); hint.Text = "关闭窗口后，AhzScribe 会缩到托盘继续运行。托盘图标在任务栏右下角。"; hint.Dock = DockStyle.Fill; hint.ForeColor = Theme.TextPrimary; hint.TextAlign = ContentAlignment.MiddleLeft; hint.Padding = new Padding(10, 0, 0, 0); hint.Font = new Font("Microsoft YaHei UI", 9f);
+            var hintClose = new Button(); hintClose.Text = "知道了"; hintClose.Dock = DockStyle.Right; hintClose.Width = 84; hintClose.FlatStyle = FlatStyle.Flat; hintClose.FlatAppearance.BorderSize = 0; hintClose.BackColor = Theme.BgTertiary; hintClose.ForeColor = Theme.TextPrimary; hintClose.Click += delegate { _hintPanel.Visible = false; };
+            _hintPanel.Controls.Add(hint); _hintPanel.Controls.Add(hintClose);
+            bottom.Controls.Add(_hintPanel);
             bottom.Controls.Add(stopBtn);
             bottom.Controls.Add(auditBtn);
 
@@ -712,7 +722,7 @@ namespace AhzScribe.Face
             string firstRun = Path.Combine(_dataDir, "first_run_tray_hint_shown");
             if (!File.Exists(firstRun))
             {
-                AppendChat("Ahz", "关闭窗口后，AhzScribe 会缩到托盘继续运行。托盘图标在任务栏右下角。", "chat");
+                _hintPanel.Visible = true;
                 try { File.WriteAllText(firstRun, DateTime.Now.ToString("o"), new UTF8Encoding(false)); } catch { }
             }
             List<FaceMessage> history = FaceSession.Load(_sessionPath, 200);
