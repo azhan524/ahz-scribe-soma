@@ -370,19 +370,20 @@ namespace AhzScribe.Face
                             }
                             catch { }
                         }
+                        string sourceAudit = FaceAudit.Append(_dataDir, "memory", "extract", "allowed", "episode " + g.Key, "episode summary");
                         _memory.RememberAsync(new MemoryItem
                         {
                             Kind = "episodic",
                             Key = "episode:" + g.Key,
                             Value = summary,
                             Summary = "episode " + g.Key,
-                            SourceAuditId = "episode:" + g.Key,
+                            SourceAuditId = sourceAudit,
                             Status = "active"
                         }, CancellationToken.None).GetAwaiter().GetResult();
                         try
                         {
                             var extractor = new MemoryExtractor(_host.Model);
-                            List<MemoryItem> extracted = await extractor.ExtractAsync(fallback, "episode:" + g.Key, CancellationToken.None).ConfigureAwait(false);
+                            List<MemoryItem> extracted = await extractor.ExtractAsync(fallback, sourceAudit, CancellationToken.None).ConfigureAwait(false);
                             foreach (MemoryItem m in extracted)
                                 _memory.RememberAsync(m, CancellationToken.None).GetAwaiter().GetResult();
                         }
@@ -519,9 +520,13 @@ namespace AhzScribe.Face
 
         void HandleAudit(string args)
         {
+            var allLines = new List<string>();
             string path = AuditPath();
-            if (!File.Exists(path)) { AppendChat("Ahz", "审计文件不存在：" + path, "chat"); return; }
-            string[] lines = File.ReadAllLines(path, Encoding.UTF8);
+            if (File.Exists(path)) allLines.AddRange(File.ReadAllLines(path, Encoding.UTF8));
+            string facePath = FaceAudit.PathFor(_dataDir);
+            if (File.Exists(facePath)) allLines.AddRange(File.ReadAllLines(facePath, Encoding.UTF8));
+            if (allLines.Count == 0) { AppendChat("Ahz", "没有审计记录：" + path, "chat"); return; }
+            string[] lines = allLines.ToArray();
             string[] parts = (args ?? "").Split(new[] { ' ' }, 2);
             string cmd = parts.Length > 0 ? parts[0].ToLowerInvariant() : "";
             if (cmd == "tail")
@@ -537,6 +542,12 @@ namespace AhzScribe.Face
                 string id = parts.Length > 1 ? parts[1].Trim() : "";
                 if (id.Length == 0) { AppendChat("Ahz", "用法：/audit show <audit_id>", "chat"); return; }
                 string hit = lines.FirstOrDefault(x => x.IndexOf(id, StringComparison.OrdinalIgnoreCase) >= 0);
+                if (hit != null && hit.IndexOf("rolled_back_by", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    string link = lines.FirstOrDefault(x => x.IndexOf("audit_link", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                        x.IndexOf(id, StringComparison.OrdinalIgnoreCase) >= 0);
+                    if (link != null) hit += "\nrolled_back_by: audit_link present -> " + link;
+                }
                 AppendChat("Ahz", hit ?? "没有找到 audit_id：" + id, "chat");
                 return;
             }
@@ -640,7 +651,8 @@ namespace AhzScribe.Face
             {
                 string[] p = text.Split(new[] { ' ' }, 4);
                 if (p.Length < 4) { AppendChat("Ahz", "用法：/remember <kind> <key> <value>", "chat"); return; }
-                _memory.RememberAsync(new MemoryItem { Kind = p[1], Key = p[2], Value = p[3], Summary = p[2] + "=" + p[3] }, CancellationToken.None).GetAwaiter().GetResult();
+                string sa = FaceAudit.Append(_dataDir, "memory", "remember", "allowed", p[2] + "=" + p[3], "user /remember");
+                _memory.RememberAsync(new MemoryItem { Kind = p[1], Key = p[2], Value = p[3], Summary = p[2] + "=" + p[3], SourceAuditId = sa }, CancellationToken.None).GetAwaiter().GetResult();
                 AppendChat("Ahz", "已记住 " + p[2] + " = " + p[3], "chat");
                 RenderMemory();
                 return;
