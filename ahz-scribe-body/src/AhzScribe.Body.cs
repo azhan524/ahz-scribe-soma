@@ -27,6 +27,22 @@ namespace AhzScribe.Body
                 return SelfTest.Run();
             if (args != null && args.Length > 0 && args[0] == "--ipc-test")
                 return IpcSelfTest.Run();
+            if (args != null && args.Length > 0 && args[0] == "--token-test")
+            {
+                var id = System.Security.Principal.WindowsIdentity.GetCurrent();
+                Console.WriteLine("user=" + id.Name + " owner=" + id.Owner);
+                foreach (var g in id.Groups)
+                    if (g.Value != null && g.Value.StartsWith("S-1-16-")) Console.WriteLine("integrity=" + g.Value);
+                try
+                {
+                    var pipe = new System.IO.Pipes.NamedPipeClientStream(".", "ahz-scribe-audit", System.IO.Pipes.PipeDirection.InOut);
+                    pipe.Connect(2000);
+                    Console.WriteLine("PIPE: OK");
+                    pipe.Dispose();
+                }
+                catch (Exception ex) { Console.WriteLine("PIPE: " + ex.GetType().Name + " " + ex.Message); }
+                return 0;
+            }
             if (args != null && args.Length > 0 && args[0] == "--broker-test")
             {
                 string data = Environment.GetEnvironmentVariable("AHZ_BODY_DATA") ?? Path.Combine(Environment.CurrentDirectory, "_body-data");
