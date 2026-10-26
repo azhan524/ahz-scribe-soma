@@ -5,6 +5,9 @@ using System.Net.Http;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Windows.Forms;
+using FlaUI.Core;
+using FlaUI.UIA3;
+using FlaUI.Core.AutomationElements;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.IO;
@@ -167,6 +170,7 @@ namespace AhzScribe.Body
                     case "glob": result.Output = Glob(request); break;
                     case "network_fetch": result.Output = NetworkFetch(request, ct); break;
                     case "browser_open": result.Output = BrowserOpen(request); break;
+                    case "desktop_uia_tree": result.Output = DesktopUiaTree(); break;
                     case "browser_read": result.Output = NetworkFetch(request, ct); break;
                     case "desktop_list_windows": result.Output = DesktopWindows(); break;
                     case "process_list": result.Output = ProcessList(); break;
@@ -490,6 +494,7 @@ namespace AhzScribe.Body
                 try { lines.Add(p.Id + " | " + p.ProcessName + " | " + (p.WorkingSet64 / 1024 / 1024) + " MB"); }
                 catch { }
             }
+            if (lines.Count == 0) lines.Add("uia children=0");
             return string.Join("\n", lines.ToArray());
         }
         string DesktopActiveWindow()
@@ -553,6 +558,33 @@ namespace AhzScribe.Body
         }
 
         static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+        string DesktopUiaTree()
+        {
+            var lines = new List<string>();
+            using (var automation = new UIA3Automation())
+            {
+                AutomationElement desktop = automation.GetDesktop();
+                var children = desktop.FindAllChildren();
+                if (children.Length == 0) children = desktop.FindAllDescendants();
+                foreach (AutomationElement e in children)
+                {
+                    try
+                    {
+                        string name = e.Name ?? "";
+                        string id = e.AutomationId ?? "";
+                        string type = e.ControlType.ToString();
+                        if (name.Length == 0 && id.Length == 0) continue;
+                        int pid = 0;
+                        try { pid = e.Properties.ProcessId.Value; } catch { }
+                        lines.Add(pid + " | " + type + " | " + id + " | " + name);
+                        if (lines.Count >= 80) break;
+                    }
+                    catch { }
+                }
+            }
+            if (lines.Count == 0) lines.Add("uia children=0");
+            return string.Join("\n", lines.ToArray());
+        }
         string BrowserOpen(ActionRequest r)
         {
             if (r.Tier != PermissionTier.Full || !r.Approved)
