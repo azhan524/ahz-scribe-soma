@@ -515,7 +515,9 @@ namespace AhzScribe.Face
         {
             try
             {
-                List<FaceMessage> msgs = FaceSession.Load(_sessionPath, 20);
+                List<FaceMessage> msgs = FaceSession.Load(_sessionPath, 5000)
+                    .Where(x => x.Kind != "tool").ToList();
+                if (msgs.Count > 100) msgs = msgs.Skip(msgs.Count - 100).ToList();
                 var sb = new StringBuilder();
                 foreach (FaceMessage m in msgs)
                     sb.AppendLine((m.Role ?? "") + ": " + (m.Text ?? ""));
