@@ -1007,7 +1007,8 @@ namespace AhzScribe.Face
                     _stateIntents.Text = "未完成意图 " + oi + (string.IsNullOrEmpty(first) ? "" : "\n" + first);
                     _stateBody.Text = "身体\n空闲 " + (b.IdleSeconds / 60) + " 分 · " + (b.NetworkOnline ? "在线" : "离线");
                     _statePulse.Text = "最近脉冲\n" + (st == null || st.LastPulseTrigger == null ? "—" : st.LastPulseTrigger.Type + " " + st.LastPulseTrigger.ReceivedAt);
-                    _stateMood.Text = "情绪\n平静";
+                    string mood = st != null && !string.IsNullOrEmpty(st.ActiveTask) ? "专注" : (st != null && string.Equals(st.LastPulseResult, "none", StringComparison.OrdinalIgnoreCase) ? "安静" : "平静");
+                    _stateMood.Text = "情绪\n" + mood;
                 }
                 int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
                 var sb = new StringBuilder();
