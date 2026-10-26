@@ -51,13 +51,15 @@ namespace AhzScribe.Face
             {
                 string title = call.Args != null && call.Args.ContainsKey("title") ? Convert.ToString(call.Args["title"]) : "自我改造申请";
                 string change = call.Args != null && call.Args.ContainsKey("change") ? Convert.ToString(call.Args["change"]) : "";
-                DialogResult r = MessageBox.Show(this, title + "\\n\\n" + change, "批准自我改造？", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
-                if (r == DialogResult.Yes)
+                bool approved = false;
+                using (var dlg = new ApprovalForm(title, change))
+                    approved = dlg.ShowDialog(this) == DialogResult.Yes;
+                if (approved)
                 {
                     string root = string.IsNullOrEmpty(_settings.Workspace) ? (Environment.GetEnvironmentVariable("AHZ_WORKSPACE") ?? "") : _settings.Workspace;
-                    _host.Policy.Begin(root);
+                    if (!string.IsNullOrEmpty(root)) _host.Policy.Begin(root);
                 }
-                return Task.FromResult(r == DialogResult.Yes);
+                return Task.FromResult(approved);
             };
 
             _output = new RichTextBox();
