@@ -19,6 +19,7 @@ namespace AhzScribe.Face
         readonly TextBox _memoryView;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe;
         readonly TabControl _tabs;
+        readonly Label _status;
         readonly TextBox _input;
         readonly Button _send;
         readonly BrainHost _host;
@@ -141,7 +142,7 @@ namespace AhzScribe.Face
             _tabs.TabPages.Add(settingsPage);
             var bottom = new Panel();
             bottom.Dock = DockStyle.Bottom;
-            bottom.Height = 56;
+            bottom.Height = 80;
             bottom.BackColor = Color.FromArgb(24, 26, 30);
 
             _input = new TextBox();
@@ -166,6 +167,15 @@ namespace AhzScribe.Face
                 if (e.KeyCode == Keys.Enter && !e.Shift) { e.SuppressKeyPress = true; SendAsync(); }
             };
 
+            _status = new Label();
+            _status.Dock = DockStyle.Top;
+            _status.Height = 22;
+            _status.BackColor = Color.FromArgb(20, 22, 26);
+            _status.ForeColor = Color.FromArgb(160, 170, 185);
+            _status.Font = new Font("Consolas", 8.5f);
+            _status.Padding = new Padding(10, 3, 4, 0);
+            _status.Text = "episode -   memory 0   body " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body");
+            bottom.Controls.Add(_status);
             var pad = new Panel();
             pad.Dock = DockStyle.Fill;
             pad.Padding = new Padding(10, 8, 8, 8);
@@ -187,6 +197,7 @@ namespace AhzScribe.Face
             }
             RememberOldEpisodes(history);
             RenderMemory();
+            UpdateStatus();
             FaceState state = FaceSession.LoadState(_sessionPath);
             if (state != null) UpdateTitle(state.CurrentFocus);
         }
@@ -306,6 +317,17 @@ namespace AhzScribe.Face
             b.Margin = new Padding(0, 4, 0, 4);
             return b;
         }
+        void UpdateStatus()
+        {
+            try
+            {
+                FaceState st = FaceSession.LoadState(_sessionPath);
+                int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
+                string ep = st == null || string.IsNullOrEmpty(st.CurrentEpisode) ? "-" : st.CurrentEpisode;
+                _status.Text = "episode " + ep + "   memory " + mem + "   body " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body");
+            }
+            catch { }
+        }
         void SaveSettings()
         {
             _settings.BaseUrl = _setBase.Text.Trim();
@@ -358,6 +380,7 @@ namespace AhzScribe.Face
                     ? await _host.RunToolAsync(text.Substring(6), CancellationToken.None)
                     : await _host.AskAsync(text, CancellationToken.None);
                 AppendChat("Ahz", answer ?? "", "chat");
+            UpdateStatus();
             }
             catch (Exception ex) { Append("错误：" + ex.Message); }
             finally { _send.Enabled = true; _input.Focus(); }
