@@ -338,7 +338,16 @@ namespace AhzScribe.Face
             _htmlHost.Visible = false;
             _htmlHost.BackColor = Theme.BgPrimary;
             _htmlHost.Controls.Add(_web);
-            _web.CoreWebView2InitializationCompleted += delegate(object s, Microsoft.Web.WebView2.Core.CoreWebView2InitializationCompletedEventArgs e) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), "init success=" + e.IsSuccess + " " + e.InitializationException + "\n"); } catch { } };
+            _web.CoreWebView2InitializationCompleted += delegate(object s, Microsoft.Web.WebView2.Core.CoreWebView2InitializationCompletedEventArgs e)
+            {
+                try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), "init success=" + e.IsSuccess + " " + e.InitializationException + "\n"); } catch { }
+                if (!e.IsSuccess)
+                {
+                    _htmlHost.Visible = false;
+                    _pulseView.Visible = true;
+                    _pulseView.Text = "HTML 面板不可用，已切换为只读文本模式。\n" + e.InitializationException;
+                }
+            };
             _web.NavigationCompleted += delegate(object s, Microsoft.Web.WebView2.Core.CoreWebView2NavigationCompletedEventArgs e) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), "nav success=" + e.IsSuccess + " " + e.WebErrorStatus + "\n"); } catch { } };
             _taskView = new TextBox();
             _taskView.Multiline = true;
@@ -395,6 +404,8 @@ namespace AhzScribe.Face
             pulseRefresh.Height = 28;
             pulseRefresh.Click += delegate { RenderPulse(); };
             pulsePanel.Controls.Add(pulseRefresh);
+            _pulseView.Visible = false;
+            pulsePanel.Controls.Add(_pulseView);
             pulsePage.Controls.Add(pulsePanel);
             var memoryPage = new TabPage("记忆");
             memoryPage.BackColor = Theme.BgPrimary;
