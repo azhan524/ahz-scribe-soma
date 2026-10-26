@@ -179,10 +179,13 @@ namespace AhzScribe.Face
             foreach (MemoryItem m in all)
                 if (string.Equals(m.Kind, "intent_done", StringComparison.OrdinalIgnoreCase)) done.Add(m.Key ?? "");
 
+            DateTime now = DateTime.Now;
+            DateTime due;
             MemoryItem intent = all.FirstOrDefault(m =>
                 string.Equals(m.Kind, "intent", StringComparison.OrdinalIgnoreCase) &&
                 !string.IsNullOrWhiteSpace(m.Value) &&
-                !done.Contains(m.Key ?? ""));
+                !done.Contains(m.Key ?? "") &&
+                (string.IsNullOrEmpty(m.DueAt) || !DateTime.TryParse(m.DueAt, out due) || due <= now));
             if (intent == null) return new PulseDecision { Action = "none", Reason = "no_due_intent" };
 
             await _memory.RememberAsync(new MemoryItem

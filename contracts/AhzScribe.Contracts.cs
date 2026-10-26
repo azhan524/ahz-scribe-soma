@@ -92,6 +92,7 @@ namespace AhzScribe.Contracts
         public string Status { get; set; }
         public string SourceAuditId { get; set; }
         public string DisputedWith { get; set; }
+        public string DueAt { get; set; }
         public string Ts { get; set; }
     }
 

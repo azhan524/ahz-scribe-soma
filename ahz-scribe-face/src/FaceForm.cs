@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -557,7 +558,6 @@ namespace AhzScribe.Face
                 string type = due ? "intent_due" : (idle && hasOpen ? "body_event" : "timer");
                 FaceSession.SetPulseTrigger(_sessionPath, type, "scheduled");
                 PulseDecision d = _arbiter.EnqueueAsync(new PulseTrigger { Type = type, Payload = "scheduled" }, CancellationToken.None).GetAwaiter().GetResult();
-                if (d != null && d.Action == "message") OnPulse(new PulseEvent { Summary = d.Text });
             }
             catch { }
         }
@@ -754,10 +754,18 @@ namespace AhzScribe.Face
             if (text.StartsWith("/intent ", StringComparison.Ordinal))
             {
                 string body = text.Substring(8).Trim();
-                if (body.Length == 0) { AppendChat("Ahz", "用法：/intent <要提醒的事>", "chat"); return; }
-                OpenIntent oi = FaceSession.AddIntent(_sessionPath, body, "");
-                _memory.RememberAsync(new MemoryItem { Kind = "intent", Key = oi.Id, Value = body, Summary = "intent" }, CancellationToken.None).GetAwaiter().GetResult();
-                AppendChat("Ahz", "已记下意图：" + body + "\n下次脉冲会提醒（安静时段 23:00–08:00 不提醒）", "chat");
+                if (body.Length == 0) { AppendChat("Ahz", "用法：/intent [30m] <要提醒的事>", "chat"); return; }
+                string dueAt = "";
+                Match mins = Regex.Match(body, @"^(\d+)\s*(分钟|分|m|min)\s*(.*)$", RegexOptions.IgnoreCase);
+                if (mins.Success)
+                {
+                    int delay = Math.Max(1, int.Parse(mins.Groups[1].Value));
+                    dueAt = DateTime.Now.AddMinutes(delay).ToString("o");
+                    body = mins.Groups[3].Value.Length == 0 ? mins.Value : mins.Groups[3].Value;
+                }
+                OpenIntent oi = FaceSession.AddIntent(_sessionPath, body, dueAt);
+                _memory.RememberAsync(new MemoryItem { Kind = "intent", Key = oi.Id, Value = body, Summary = "intent", DueAt = dueAt }, CancellationToken.None).GetAwaiter().GetResult();
+                AppendChat("Ahz", "已记下意图：" + body + (dueAt.Length == 0 ? "" : "（到期 " + dueAt + "）") + "\n下次脉冲会检查（安静时段 23:00–08:00 不提醒）", "chat");
                 RenderMemory();
                 return;
             }
@@ -772,6 +780,28 @@ namespace AhzScribe.Face
                     AppendChat("Ahz", "pulse: " + (d == null ? "null" : d.Action + " / " + (d.Reason ?? "")), "chat");
                 }
                 finally { _pulseBody.LastUserAt = saved; }
+                return;
+            }
+            if (text == "/proactive-reset")
+            {
+                FaceState st = FaceSession.LoadState(_sessionPath);
+                if (st != null)
+                {
+                    st.ProactiveCount = 0; st.UnansweredProactive = 0; st.ProactivePausedUntil = "";
+                    FaceSession.SaveState(_sessionPath, st);
+                }
+                AppendChat("Ahz", "主动消息限流已重置", "chat");
+                return;
+            }
+            if (text == "/intent-clear")
+            {
+                FaceState st = FaceSession.LoadState(_sessionPath);
+                if (st != null && st.OpenIntents != null)
+                {
+                    foreach (OpenIntent it in st.OpenIntents) if (it.Status == "open" || it.Status == "monitoring") it.Status = "cancelled";
+                    FaceSession.SaveState(_sessionPath, st);
+                }
+                AppendChat("Ahz", "已取消当前 open intents", "chat");
                 return;
             }
             if (text == "/drive")
@@ -791,7 +821,7 @@ namespace AhzScribe.Face
             }
             if (text == "/help")
             {
-                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/intent <事>  记一个提醒意图\n/pulse  立即执行一次脉冲\n/extract  提取最近对话记忆\n/drive  立即跑一次内驱\n/audit tail [n]  查看审计\n/audit show <id>  查看一条\n/audit export  导出到 _face-data\n/stop  全局急停\n/resume  恢复\n/help  本帮助", "chat");
+                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/intent <事>  记一个提醒意图\n/pulse  立即执行一次脉冲\n/extract  提取最近对话记忆\n/drive  立即跑一次内驱\n/intent-clear  取消所有 open intents\n/proactive-reset  重置主动消息限流\n/audit tail [n]  查看审计\n/audit show <id>  查看一条\n/audit export  导出到 _face-data\n/stop  全局急停\n/resume  恢复\n/help  本帮助", "chat");
                 return;
             }
             if (text == "/episode")
