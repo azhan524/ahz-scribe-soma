@@ -7,6 +7,7 @@ obj/
 *.pdb
 *.new
 *.log
+*.err
 
 # Runtime data and secrets
 _body-data/
