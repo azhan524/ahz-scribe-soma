@@ -28,6 +28,8 @@ namespace AhzScribe.Face
         readonly TextBox _input;
         readonly Button _send;
         readonly BrainHost _host;
+        readonly FacePulseBody _pulseBody;
+        readonly PulseScheduler _pulse;
         readonly string _modelName;
         readonly string _sessionPath;
         readonly string _dataDir;
@@ -51,6 +53,11 @@ namespace AhzScribe.Face
             _memory = new MemoryStore(Path.Combine(_dataDir, "memory.jsonl"));
             _host = new BrainHost(_memory, CreateModel(out _modelName));
             _host.Trace = delegate(string line) { AppendTrace(line); };
+            _pulseBody = new FacePulseBody();
+            _pulse = new PulseScheduler(_pulseBody, _memory, new FacePulseAudit(AppendTrace),
+                new FacePulseSink(OnPulse), new IntentPulseDecider(_memory));
+            _pulse.Start(60000);
+            FormClosed += delegate { _pulse.Dispose(); };
             _host.Policy = new SelfIterationPolicy();
             _host.Propose = delegate(BrainToolCall call, CancellationToken ct)
             {
@@ -452,6 +459,11 @@ namespace AhzScribe.Face
             }
             catch { }
         }
+        void OnPulse(PulseEvent evt)
+        {
+            if (InvokeRequired) { BeginInvoke(new Action<PulseEvent>(OnPulse), evt); return; }
+            AppendChat("Ahz", evt.Summary ?? "提醒", "chat");
+        }
         void JumpTo(FaceMessage m)
         {
             _tabs.SelectedIndex = 0;
@@ -495,12 +507,28 @@ namespace AhzScribe.Face
             string text = _input.Text.Trim();
             if (text.Length == 0) return;
             _input.Clear();
+            _pulseBody.LastUserAt = DateTime.UtcNow;
             FaceSession.SetFocus(_sessionPath, text);
             UpdateTitle(text);
             AppendChat("你", text, "chat");
+            if (text.StartsWith("/intent ", StringComparison.Ordinal))
+            {
+                string body = text.Substring(8).Trim();
+                if (body.Length == 0) { AppendChat("Ahz", "用法：/intent <要提醒的事>", "chat"); return; }
+                _memory.RememberAsync(new MemoryItem { Kind = "intent", Key = "intent:" + Guid.NewGuid().ToString("N"), Value = body, Summary = "intent" }, CancellationToken.None).GetAwaiter().GetResult();
+                AppendChat("Ahz", "已记下意图：" + body + "\n下次脉冲会提醒（安静时段 23:00–08:00 不提醒）", "chat");
+                RenderMemory();
+                return;
+            }
+            if (text == "/pulse")
+            {
+                PulseDecision d = _pulse.TickAsync(CancellationToken.None).GetAwaiter().GetResult();
+                AppendChat("Ahz", "pulse: " + (d == null ? "null" : d.Action + " / " + (d.Reason ?? "")), "chat");
+                return;
+            }
             if (text == "/help")
             {
-                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/help  本帮助", "chat");
+                AppendChat("Ahz", "命令：\n/ask <问题>  对话\n/tool <任务>  让模型调用工具\n/remember <kind> <key> <value>  写入记忆\n/memory <查询>  检索记忆\n/episode  当前时间线状态\n/intent <事>  记一个提醒意图\n/pulse  立即执行一次脉冲\n/help  本帮助", "chat");
                 return;
             }
             if (text == "/episode")
