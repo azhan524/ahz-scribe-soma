@@ -148,6 +148,7 @@ namespace AhzScribe.Face
         readonly TextBox _pulseView;
         readonly WebView2 _web;
         readonly Panel _htmlHost;
+        string _auditFocus;
         readonly Label _stateFocus, _stateIntents, _stateBody, _statePulse, _stateMood;
         readonly TextBox _taskView;
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
@@ -984,7 +985,7 @@ namespace AhzScribe.Face
                 sb.Append("document.getElementById('q').addEventListener('input',function(){render();try{localStorage.setItem(KEY,JSON.stringify({q:this.value}));}catch(e){}});load();");
                 sb.Append("</script></body></html>");
                 await _web.EnsureCoreWebView2Async(null);
-                try { _web.CoreWebView2.AddHostObjectToScript("host", new FaceUiHost(_dataDir, delegate(string id) { Show(); _tabs.SelectedIndex = 3; ShowHtmlTab(); })); } catch { }
+                try { _web.CoreWebView2.AddHostObjectToScript("host", new FaceUiHost(_dataDir, OpenAuditById)); } catch { }
                 _web.CoreWebView2.NavigateToString(sb.ToString());
             }
             catch (Exception ex) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), ex + "\n"); } catch { } }
@@ -999,15 +1000,25 @@ namespace AhzScribe.Face
                 sb.Append("body{margin:0;background:var(--bg);color:var(--text);font:13px 'Microsoft YaHei UI','Segoe UI',sans-serif;}header{padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;position:sticky;top:0;z-index:2;}header span{color:var(--muted);font:12px 'Microsoft YaHei UI';}header input{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:6px 8px;border-radius:4px;font:12px 'Microsoft YaHei UI';}table{width:100%;border-collapse:collapse;font:12px Consolas,monospace;}th{text-align:left;color:var(--muted);font-weight:normal;background:var(--bg3);padding:6px;}td{border-bottom:1px solid var(--line);padding:5px 6px;vertical-align:top;}tr:hover{background:var(--bg2);}tr.blocked td:first-child{border-left:3px solid var(--danger);} .danger{color:var(--danger);} .ok{color:var(--success);} .warn{color:var(--warning);} .empty{color:var(--weak);font-style:italic;padding:18px 12px;}");
                 sb.Append("</style></head><body><header><span>审计</span><input id='q' placeholder='搜索 tool / args / span'><span id='cnt'></span></header><div id='list'></div>");
                 sb.Append("<script>const KEY='ahzscribe.ui.audit';let rows=[];function esc(s){return String(s==null?'':s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));}");
+                sb.Append("const focus=").Append(System.Text.Json.JsonSerializer.Serialize(_auditFocus ?? "")).Append(";");
                 sb.Append("function render(){let q=(document.getElementById('q').value||'').toLowerCase();let list=document.getElementById('list');list.innerHTML='';let n=0;rows.forEach(function(r){if(q&&(r.raw||'').toLowerCase().indexOf(q)<0)return;n++;let cls=r.decision==='blocked'?'row blocked':'';let fb=r.fallback?' <span class=\"warn\">[备用]</span>':'';let d=document.createElement('div');d.className=cls;d.innerHTML='<table><tr><td>'+esc(r.ts)+'</td><td>'+esc(r.span)+'</td><td>'+esc(r.tool)+'</td><td class=\"'+(r.decision==='blocked'?'danger':(r.decision==='allowed'?'ok':'')) +'\">'+esc(r.decision)+fb+'</td><td>'+esc(r.result)+'</td></tr></table>';list.appendChild(d);});if(n===0)list.innerHTML='<div class=\"empty\">没有匹配的审计</div>';document.getElementById('cnt').textContent=n+' 条';}");
                 sb.Append("async function load(){try{rows=JSON.parse(await chrome.webview.hostObjects.host.QueryAudit(''));let saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}document.getElementById('q').value=saved.q||'';render();if(saved.scroll)setTimeout(()=>document.getElementById('list').scrollTop=saved.scroll,50);}catch(e){document.getElementById('list').innerHTML='<div class=\"empty\">'+esc(e)+'</div>';}}");
+                sb.Append("if(focus){let el=document.querySelector('[data-audit=\"'+focus+'\"]');if(el){el.scrollIntoView({block:'center'});el.style.background='var(--bg3)';}}");
                 sb.Append("document.getElementById('q').addEventListener('input',function(){render();try{localStorage.setItem(KEY,JSON.stringify({q:this.value,scroll:document.getElementById('list').scrollTop}));}catch(e){}});load();");
                 sb.Append("</script></body></html>");
                 await _web.EnsureCoreWebView2Async(null);
-                try { _web.CoreWebView2.AddHostObjectToScript("host", new FaceUiHost(_dataDir, delegate(string id) { Show(); _tabs.SelectedIndex = 3; ShowHtmlTab(); })); } catch { }
+                try { _web.CoreWebView2.AddHostObjectToScript("host", new FaceUiHost(_dataDir, OpenAuditById)); } catch { }
                 _web.CoreWebView2.NavigateToString(sb.ToString());
             }
             catch (Exception ex) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), ex + "\n"); } catch { } }
+        }
+        public void OpenAuditById(string auditId)
+        {
+            _auditFocus = auditId;
+            Show();
+            _tabs.SelectedIndex = 3;
+            ShowHtmlTab();
+            RenderAuditHtml();
         }
         public void ShowPulse()
         {
@@ -1062,7 +1073,7 @@ namespace AhzScribe.Face
                 sb.Append("document.getElementById('q').addEventListener('input',function(){render();try{localStorage.setItem(KEY,JSON.stringify({q:this.value,scroll:document.getElementById('list').scrollTop}));}catch(e){}});document.getElementById('list').addEventListener('scroll',function(){try{localStorage.setItem(KEY,JSON.stringify({q:document.getElementById('q').value,scroll:this.scrollTop}));}catch(e){}},{passive:true});load();");
                 sb.Append("</script></body></html>");
                 await _web.EnsureCoreWebView2Async(null);
-                try { _web.CoreWebView2.AddHostObjectToScript("host", new FaceUiHost(_dataDir, delegate(string id) { Show(); _tabs.SelectedIndex = 3; ShowHtmlTab(); })); } catch { }
+                try { _web.CoreWebView2.AddHostObjectToScript("host", new FaceUiHost(_dataDir, OpenAuditById)); } catch { }
                 _web.CoreWebView2.NavigateToString(sb.ToString());
             }
             catch (Exception ex) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), ex.ToString() + "\n"); } catch { } }
