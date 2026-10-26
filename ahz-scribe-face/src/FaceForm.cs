@@ -207,6 +207,18 @@ namespace AhzScribe.Face
                 _side.Controls.Add(b);
                 _nav[i] = b;
             }
+            var search = new Button();
+            search.Text = "搜索对话";
+            search.Dock = DockStyle.Bottom;
+            search.Height = 46;
+            search.FlatStyle = FlatStyle.Flat;
+            search.FlatAppearance.BorderSize = 0;
+            search.BackColor = Color.FromArgb(18, 20, 24);
+            search.ForeColor = Color.FromArgb(180, 188, 200);
+            search.TextAlign = ContentAlignment.MiddleLeft;
+            search.Padding = new Padding(18, 0, 0, 0);
+            search.Click += delegate { using (var f = new HistorySearchForm(_sessionPath)) f.ShowDialog(this); };
+            _side.Controls.Add(search);
             _side.Controls.Add(brand);
             _tabs.SelectedIndexChanged += delegate { UpdateNav(); };
             UpdateNav();
