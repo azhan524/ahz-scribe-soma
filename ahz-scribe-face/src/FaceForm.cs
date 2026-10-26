@@ -182,7 +182,7 @@ namespace AhzScribe.Face
             bottom.Controls.Add(_status);
             var pad = new Panel();
             pad.Dock = DockStyle.Fill;
-            pad.Padding = new Padding(10, 8, 8, 8);
+            pad.Padding = new Padding(10, 32, 8, 8);
             pad.Controls.Add(_input);
             bottom.Controls.Add(pad);
             bottom.Controls.Add(_send);
