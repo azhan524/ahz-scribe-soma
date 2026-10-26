@@ -240,6 +240,10 @@ namespace AhzScribe.Face
             if (!string.IsNullOrEmpty(_settings.BodyPipe)) Environment.SetEnvironmentVariable("AHZ_BODY_PIPE", _settings.BodyPipe);
             if (_settings.ModelNoProxy) Environment.SetEnvironmentVariable("AHZ_MODEL_NOPROXY", "1");
             _memory = new MemoryStore(Path.Combine(_dataDir, "memory.jsonl"));
+            Environment.SetEnvironmentVariable("AHZ_PROACTIVE_MAX", _settings.ProactiveDailyMax.ToString());
+            Environment.SetEnvironmentVariable("AHZ_QUIET_START", _settings.QuietStartHour.ToString());
+            Environment.SetEnvironmentVariable("AHZ_QUIET_END", _settings.QuietEndHour.ToString());
+            Environment.SetEnvironmentVariable("AHZ_UNANSWERED_PAUSE_HOURS", _settings.UnansweredPauseHours.ToString());
             _host = new BrainHost(_memory, CreateModel(out _modelName));
             _host.Trace = delegate(string line) { AppendTrace(line); };
             RunStartupCheck();

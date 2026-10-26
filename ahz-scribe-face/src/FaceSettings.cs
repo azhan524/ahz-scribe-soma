@@ -13,6 +13,10 @@ namespace AhzScribe.Face
         public string BodyPipe { get; set; } = "ahz-scribe-body";
         public string BodyData { get; set; } = "";
         public bool ModelNoProxy { get; set; }
+        public int ProactiveDailyMax { get; set; } = 2;
+        public int QuietStartHour { get; set; } = 23;
+        public int QuietEndHour { get; set; } = 8;
+        public int UnansweredPauseHours { get; set; } = 24;
 
         public static FaceSettings Load(string dataDir)
         {

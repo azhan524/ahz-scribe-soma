@@ -8,17 +8,28 @@ namespace AhzScribe.Face
         public static bool Allow(FaceState st, DateTime now)
         {
             if (st == null) return true;
-            if (now.Hour < 8 || now.Hour >= 23) return false;
+            int quietStart = PolicyEnv.EnvInt("AHZ_QUIET_START", 23);
+            int quietEnd = PolicyEnv.EnvInt("AHZ_QUIET_END", 8);
+            if (now.Hour < quietEnd || now.Hour >= quietStart) return false;
             DateTime paused;
             if (DateTime.TryParse(st.ProactivePausedUntil, out paused) && paused > now) return false;
             string today = now.ToString("yyyy-MM-dd");
             if (st.LastProactiveDate != today) { st.LastProactiveDate = today; st.ProactiveCount = 0; }
-            if (st.ProactiveCount >= 2) return false;
+            if (st.ProactiveCount >= PolicyEnv.EnvInt("AHZ_PROACTIVE_MAX", 2)) return false;
             st.ProactiveCount++;
             st.LastProactiveAt = now.ToString("o");
             st.UnansweredProactive++;
-            if (st.UnansweredProactive >= 2) st.ProactivePausedUntil = now.AddHours(24).ToString("o");
+            if (st.UnansweredProactive >= 2) st.ProactivePausedUntil = now.AddHours(PolicyEnv.EnvInt("AHZ_UNANSWERED_PAUSE_HOURS", 24)).ToString("o");
             return true;
+        }
+    }
+    internal static class PolicyEnv
+    {
+        public static int EnvInt(string name, int fallback)
+        {
+            string v = Environment.GetEnvironmentVariable(name);
+            int n;
+            return int.TryParse(v, out n) ? n : fallback;
         }
     }
     public static class ProactivePolicy
