@@ -904,7 +904,7 @@ namespace AhzScribe.Face
                     action = d.Action ?? "none",
                     reason = d.Reason ?? "",
                     summary = d.Text ?? "",
-                    thought = "",
+                    thought = d.Thought ?? "",
                     stateRestore = "focus=" + (st == null ? "" : st.CurrentFocus) + "; idle=" + (_sensor == null ? 0 : _sensor.Snapshot().IdleSeconds),
                     stateWriteback = "last_pulse_result=" + (d.Action ?? "none"),
                     auditId = ""
