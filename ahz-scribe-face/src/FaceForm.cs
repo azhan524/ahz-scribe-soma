@@ -19,7 +19,6 @@ namespace AhzScribe.Face
         readonly TextBox _memoryView;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe;
         readonly TabControl _tabs;
-        readonly Label _status;
         readonly TextBox _input;
         readonly Button _send;
         readonly BrainHost _host;
@@ -174,14 +173,7 @@ namespace AhzScribe.Face
             bottom.Controls.Add(pad);
             bottom.Controls.Add(_send);
 
-            _status = new Label();
-            _status.Dock = DockStyle.Top;
-            _status.Height = 24;
-            _status.BackColor = Color.FromArgb(20, 22, 26);
-            _status.ForeColor = Color.FromArgb(160, 170, 185);
-            _status.Font = new Font("Consolas", 8.5f);
-            _status.Padding = new Padding(10, 4, 4, 0);
-            Controls.Add(_status);
+
             Controls.Add(_tabs);
             Controls.Add(bottom);
 
@@ -302,17 +294,6 @@ namespace AhzScribe.Face
             }
             catch { }
         }
-        void UpdateStatus()
-        {
-            try
-            {
-                FaceState st = FaceSession.LoadState(_sessionPath);
-                int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
-                string ep = st == null || string.IsNullOrEmpty(st.CurrentEpisode) ? "-" : st.CurrentEpisode;
-                _status.Text = "episode " + ep + "   memory " + mem + "   body " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body");
-            }
-            catch { }
-        }
         TextBox MakeSettingBox(string value)
         {
             var b = new TextBox();
@@ -377,7 +358,6 @@ namespace AhzScribe.Face
                     ? await _host.RunToolAsync(text.Substring(6), CancellationToken.None)
                     : await _host.AskAsync(text, CancellationToken.None);
                 AppendChat("Ahz", answer ?? "", "chat");
-            UpdateStatus();
             }
             catch (Exception ex) { Append("错误：" + ex.Message); }
             finally { _send.Enabled = true; _input.Focus(); }
