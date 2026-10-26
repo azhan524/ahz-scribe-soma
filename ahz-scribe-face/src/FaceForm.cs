@@ -24,6 +24,7 @@ namespace AhzScribe.Face
         readonly TextBox _statusView;
         readonly TextBox _auditView;
         readonly TextBox _pulseView;
+        readonly TextBox _taskView;
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
         readonly NotifyIcon _tray;
         readonly System.Windows.Forms.Timer _clockTimer;
@@ -59,8 +60,8 @@ namespace AhzScribe.Face
             StartPosition = FormStartPosition.CenterScreen;
             ClientSize = new Size(1000, 520);
             MinimumSize = new Size(1024, 680);
-            BackColor = Color.FromArgb(24, 26, 30);
-            ForeColor = Color.FromArgb(220, 224, 230);
+            BackColor = Theme.BgPrimary;
+            ForeColor = Theme.TextPrimary;
 
             _dataDir = Path.Combine(AppContext.BaseDirectory, "_face-data");
             _sessionPath = Path.Combine(_dataDir, "sessions.jsonl");
@@ -103,8 +104,8 @@ namespace AhzScribe.Face
             _output.ReadOnly = true;
             _output.ScrollBars = RichTextBoxScrollBars.Vertical;
             _output.Dock = DockStyle.Fill;
-            _output.BackColor = Color.FromArgb(30, 33, 38);
-            _output.ForeColor = Color.FromArgb(220, 224, 230);
+            _output.BackColor = Theme.BgPrimary;
+            _output.ForeColor = Theme.TextPrimary;
             _output.BorderStyle = BorderStyle.None;
             _output.Font = new Font("Consolas", 10f);
 
@@ -113,16 +114,16 @@ namespace AhzScribe.Face
             _trace.ReadOnly = true;
             _trace.ScrollBars = ScrollBars.Vertical;
             _trace.Dock = DockStyle.Fill;
-            _trace.BackColor = Color.FromArgb(26, 28, 32);
-            _trace.ForeColor = Color.FromArgb(180, 190, 205);
+            _trace.BackColor = Theme.BgPrimary;
+            _trace.ForeColor = Theme.TextSecondary;
             _trace.BorderStyle = BorderStyle.None;
             _trace.Font = new Font("Consolas", 9f);
 
             _traceRaw = new StringBuilder();
             _traceFilter = new TextBox();
             _traceFilter.Dock = DockStyle.Top;
-            _traceFilter.BackColor = Color.FromArgb(38, 41, 48);
-            _traceFilter.ForeColor = Color.White;
+            _traceFilter.BackColor = Theme.BgSecondary;
+            _traceFilter.ForeColor = Theme.TextPrimary;
             _traceFilter.BorderStyle = BorderStyle.FixedSingle;
             _traceFilter.PlaceholderText = "过滤轨迹...";
             _traceFilter.TextChanged += delegate { RefreshTrace(); };
@@ -132,8 +133,8 @@ namespace AhzScribe.Face
             _memoryView.ReadOnly = true;
             _memoryView.ScrollBars = ScrollBars.Vertical;
             _memoryView.Dock = DockStyle.Fill;
-            _memoryView.BackColor = Color.FromArgb(26, 28, 32);
-            _memoryView.ForeColor = Color.FromArgb(180, 190, 205);
+            _memoryView.BackColor = Theme.BgPrimary;
+            _memoryView.ForeColor = Theme.TextSecondary;
             _memoryView.BorderStyle = BorderStyle.None;
             _memoryView.Font = new Font("Consolas", 9f);
 
@@ -142,8 +143,8 @@ namespace AhzScribe.Face
             _statusView.ReadOnly = true;
             _statusView.ScrollBars = ScrollBars.Vertical;
             _statusView.Dock = DockStyle.Fill;
-            _statusView.BackColor = Color.FromArgb(26, 28, 32);
-            _statusView.ForeColor = Color.FromArgb(190, 200, 215);
+            _statusView.BackColor = Theme.BgPrimary;
+            _statusView.ForeColor = Theme.TextPrimary;
             _statusView.BorderStyle = BorderStyle.None;
             _statusView.Font = new Font("Consolas", 9f);
 
@@ -152,8 +153,8 @@ namespace AhzScribe.Face
             _auditView.ReadOnly = true;
             _auditView.ScrollBars = ScrollBars.Vertical;
             _auditView.Dock = DockStyle.Fill;
-            _auditView.BackColor = Color.FromArgb(26, 28, 32);
-            _auditView.ForeColor = Color.FromArgb(190, 200, 215);
+            _auditView.BackColor = Theme.BgPrimary;
+            _auditView.ForeColor = Theme.TextPrimary;
             _auditView.BorderStyle = BorderStyle.None;
             _auditView.Font = new Font("Consolas", 8.5f);
 
@@ -162,15 +163,23 @@ namespace AhzScribe.Face
             _pulseView.ReadOnly = true;
             _pulseView.ScrollBars = ScrollBars.Vertical;
             _pulseView.Dock = DockStyle.Fill;
-            _pulseView.BackColor = Color.FromArgb(26, 28, 32);
-            _pulseView.ForeColor = Color.FromArgb(190, 200, 215);
+            _pulseView.BackColor = Theme.BgPrimary;
+            _pulseView.ForeColor = Theme.TextPrimary;
             _pulseView.BorderStyle = BorderStyle.None;
             _pulseView.Font = new Font("Consolas", 8.5f);
+            _taskView = new TextBox();
+            _taskView.Multiline = true;
+            _taskView.ReadOnly = true;
+            _taskView.Dock = DockStyle.Fill;
+            _taskView.BackColor = Theme.BgPrimary;
+            _taskView.ForeColor = Theme.TextPrimary;
+            _taskView.BorderStyle = BorderStyle.None;
+            _taskView.Font = new Font("Consolas", 9f);
 
             _memoryFilter = new TextBox();
             _memoryFilter.Dock = DockStyle.Top;
-            _memoryFilter.BackColor = Color.FromArgb(38, 41, 48);
-            _memoryFilter.ForeColor = Color.White;
+            _memoryFilter.BackColor = Theme.BgSecondary;
+            _memoryFilter.ForeColor = Theme.TextPrimary;
             _memoryFilter.BorderStyle = BorderStyle.FixedSingle;
             _memoryFilter.PlaceholderText = "搜索记忆...";
             _memoryFilter.TextChanged += delegate { RenderMemory(); };
@@ -183,7 +192,7 @@ namespace AhzScribe.Face
             _setBodyData.PlaceholderText = "body 数据目录（读审计用）";
             _setNoProxy = new CheckBox();
             _setNoProxy.Text = "模型直连（不使用系统代理）";
-            _setNoProxy.ForeColor = Color.FromArgb(200, 210, 220);
+            _setNoProxy.ForeColor = Theme.TextPrimary;
             _setNoProxy.Checked = _settings.ModelNoProxy;
             _setWorkspace.PlaceholderText = "工作区路径；留空则不能自我迭代";
 
@@ -194,17 +203,17 @@ namespace AhzScribe.Face
             _tabs.ItemSize = new Size(0, 1);
             _tabs.SizeMode = TabSizeMode.Fixed;
             var chatPage = new TabPage("对话");
-            chatPage.BackColor = Color.FromArgb(24, 26, 30);
+            chatPage.BackColor = Theme.BgPrimary;
             chatPage.Controls.Add(_output);
             var tracePage = new TabPage("轨迹");
-            tracePage.BackColor = Color.FromArgb(24, 26, 30);
+            tracePage.BackColor = Theme.BgPrimary;
             var tracePanel = new Panel();
             tracePanel.Dock = DockStyle.Fill;
             tracePanel.Controls.Add(_trace);
             tracePanel.Controls.Add(_traceFilter);
             tracePage.Controls.Add(tracePanel);
             var pulsePage = new TabPage("脉冲");
-            pulsePage.BackColor = Color.FromArgb(24, 26, 30);
+            pulsePage.BackColor = Theme.BgPrimary;
             var pulsePanel = new Panel();
             pulsePanel.Dock = DockStyle.Fill;
             var pulseRefresh = new Button();
@@ -216,17 +225,17 @@ namespace AhzScribe.Face
             pulsePanel.Controls.Add(pulseRefresh);
             pulsePage.Controls.Add(pulsePanel);
             var memoryPage = new TabPage("记忆");
-            memoryPage.BackColor = Color.FromArgb(24, 26, 30);
+            memoryPage.BackColor = Theme.BgPrimary;
             var memoryPanel = new Panel();
             memoryPanel.Dock = DockStyle.Fill;
             memoryPanel.Controls.Add(_memoryView);
             memoryPanel.Controls.Add(_memoryFilter);
             memoryPage.Controls.Add(memoryPanel);
             var statusPage = new TabPage("状态");
-            statusPage.BackColor = Color.FromArgb(24, 26, 30);
+            statusPage.BackColor = Theme.BgPrimary;
             statusPage.Controls.Add(_statusView);
             var auditPage = new TabPage("审计");
-            auditPage.BackColor = Color.FromArgb(24, 26, 30);
+            auditPage.BackColor = Theme.BgPrimary;
             var auditPanel = new Panel();
             auditPanel.Dock = DockStyle.Fill;
             var auditRefresh = new Button();
@@ -238,7 +247,7 @@ namespace AhzScribe.Face
             auditPanel.Controls.Add(auditRefresh);
             auditPage.Controls.Add(auditPanel);
             var settingsPage = new TabPage("设置");
-            settingsPage.BackColor = Color.FromArgb(24, 26, 30);
+            settingsPage.BackColor = Theme.BgPrimary;
             var table = new TableLayoutPanel();
             table.Dock = DockStyle.Fill;
             table.Padding = new Padding(18);
@@ -250,47 +259,49 @@ namespace AhzScribe.Face
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-            table.Controls.Add(new Label { Text = "模型 Base URL", ForeColor = Color.FromArgb(200, 210, 220), AutoSize = true }, 0, 0);
+            table.Controls.Add(new Label { Text = "模型 Base URL", ForeColor = Theme.TextPrimary, AutoSize = true }, 0, 0);
             table.Controls.Add(_setBase, 1, 0);
-            table.Controls.Add(new Label { Text = "模型名", ForeColor = Color.FromArgb(200, 210, 220), AutoSize = true }, 0, 1);
+            table.Controls.Add(new Label { Text = "模型名", ForeColor = Theme.TextPrimary, AutoSize = true }, 0, 1);
             table.Controls.Add(_setModel, 1, 1);
-            table.Controls.Add(new Label { Text = "工作区", ForeColor = Color.FromArgb(200, 210, 220), AutoSize = true }, 0, 2);
+            table.Controls.Add(new Label { Text = "工作区", ForeColor = Theme.TextPrimary, AutoSize = true }, 0, 2);
             table.Controls.Add(_setWorkspace, 1, 2);
-            table.Controls.Add(new Label { Text = "body 管道", ForeColor = Color.FromArgb(200, 210, 220), AutoSize = true }, 0, 3);
+            table.Controls.Add(new Label { Text = "body 管道", ForeColor = Theme.TextPrimary, AutoSize = true }, 0, 3);
             table.Controls.Add(_setPipe, 1, 3);
             var save = new Button();
             save.Text = "保存（重启 face 生效）";
             save.Width = 220;
             save.FlatStyle = FlatStyle.Flat;
             save.FlatAppearance.BorderSize = 0;
-            save.BackColor = Color.FromArgb(64, 120, 220);
-            save.ForeColor = Color.White;
+            save.BackColor = Theme.StateInfo;
+            save.ForeColor = Theme.TextPrimary;
             save.Click += delegate { SaveSettings(); };
             table.Controls.Add(_setNoProxy, 1, 4);
-            table.Controls.Add(new Label { Text = "body 数据目录", ForeColor = Color.FromArgb(200, 210, 220), AutoSize = true }, 0, 5);
+            table.Controls.Add(new Label { Text = "body 数据目录", ForeColor = Theme.TextPrimary, AutoSize = true }, 0, 5);
             table.Controls.Add(_setBodyData, 1, 5);
             table.Controls.Add(save, 1, 6);
             settingsPage.Controls.Add(table);
+            var taskPage = new TabPage("任务");
+            taskPage.BackColor = Theme.BgPrimary;
+            taskPage.Controls.Add(_taskView);
             _tabs.TabPages.Add(chatPage);
             _tabs.TabPages.Add(pulsePage);
-            _tabs.TabPages.Add(tracePage);
             _tabs.TabPages.Add(memoryPage);
-            _tabs.TabPages.Add(settingsPage);
-            _tabs.TabPages.Add(statusPage);
             _tabs.TabPages.Add(auditPage);
+            _tabs.TabPages.Add(taskPage);
+            _tabs.TabPages.Add(settingsPage);
             _side = new Panel();
             _side.Dock = DockStyle.Left;
             _side.Width = 260;
-            _side.BackColor = Color.FromArgb(18, 20, 24);
+            _side.BackColor = Theme.BgBase;
             var brand = new Label();
             brand.Text = "AHZ\nSCRIBE";
             brand.Dock = DockStyle.Top;
             brand.Height = 72;
             brand.Padding = new Padding(16, 14, 0, 0);
             brand.Font = new Font("Consolas", 13f, FontStyle.Bold);
-            brand.ForeColor = Color.FromArgb(100, 160, 255);
+            brand.ForeColor = Theme.StateInfo;
             _side.Controls.Add(brand);
-            string[] navNames = { "对话", "脉冲", "轨迹", "记忆", "设置", "状态", "审计" };
+            string[] navNames = { "对话", "脉冲", "记忆", "审计", "任务", "设置" };
             _nav = new Button[navNames.Length];
             for (int i = navNames.Length - 1; i >= 0; i--)
             {
@@ -301,8 +312,8 @@ namespace AhzScribe.Face
                 b.Height = 46;
                 b.FlatStyle = FlatStyle.Flat;
                 b.FlatAppearance.BorderSize = 0;
-                b.BackColor = Color.FromArgb(18, 20, 24);
-                b.ForeColor = Color.FromArgb(180, 188, 200);
+                b.BackColor = Theme.BgBase;
+                b.ForeColor = Theme.TextSecondary;
                 b.TextAlign = ContentAlignment.MiddleLeft;
                 b.Padding = new Padding(18, 0, 0, 0);
                 b.Click += delegate { _tabs.SelectedIndex = index; UpdateNav(); };
@@ -315,8 +326,8 @@ namespace AhzScribe.Face
             search.Height = 46;
             search.FlatStyle = FlatStyle.Flat;
             search.FlatAppearance.BorderSize = 0;
-            search.BackColor = Color.FromArgb(18, 20, 24);
-            search.ForeColor = Color.FromArgb(180, 188, 200);
+            search.BackColor = Theme.BgBase;
+            search.ForeColor = Theme.TextSecondary;
             search.TextAlign = ContentAlignment.MiddleLeft;
             search.Padding = new Padding(18, 0, 0, 0);
             search.Click += delegate
@@ -331,7 +342,7 @@ namespace AhzScribe.Face
             var bottom = new Panel();
             bottom.Dock = DockStyle.Bottom;
             bottom.Height = 120;
-            bottom.BackColor = Color.FromArgb(24, 26, 30);
+            bottom.BackColor = Theme.BgPrimary;
 
             _input = new TextBox();
             _input.Dock = DockStyle.Fill;
@@ -339,8 +350,8 @@ namespace AhzScribe.Face
             _input.PlaceholderText = "输入问题；/tool 前缀让模型使用工具";
             _input.ScrollBars = ScrollBars.Vertical;
             _input.Font = new Font("Microsoft YaHei UI", 10f);
-            _input.BackColor = Color.FromArgb(38, 41, 48);
-            _input.ForeColor = Color.White;
+            _input.BackColor = Theme.BgSecondary;
+            _input.ForeColor = Theme.TextPrimary;
             _input.BorderStyle = BorderStyle.FixedSingle;
 
             _send = new Button();
@@ -349,8 +360,8 @@ namespace AhzScribe.Face
             _send.Width = 88;
             _send.FlatStyle = FlatStyle.Flat;
             _send.FlatAppearance.BorderSize = 0;
-            _send.BackColor = Color.FromArgb(64, 120, 220);
-            _send.ForeColor = Color.White;
+            _send.BackColor = Theme.StateInfo;
+            _send.ForeColor = Theme.TextPrimary;
             _send.Font = new Font("Microsoft YaHei UI", 10f, FontStyle.Bold);
             _send.Click += delegate { SendAsync(); };
             _input.KeyDown += delegate(object s, KeyEventArgs e)
@@ -361,8 +372,8 @@ namespace AhzScribe.Face
             _status = new Label();
             _status.Dock = DockStyle.Top;
             _status.Height = 22;
-            _status.BackColor = Color.FromArgb(20, 22, 26);
-            _status.ForeColor = Color.FromArgb(160, 170, 185);
+            _status.BackColor = Theme.BgPrimary;
+            _status.ForeColor = Theme.TextSecondary;
             _status.Font = new Font("Consolas", 8.5f);
             _status.Padding = new Padding(10, 3, 4, 0);
             _status.Text = "episode -   memory 0   body " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body");
@@ -379,8 +390,8 @@ namespace AhzScribe.Face
             stopBtn.Width = 84;
             stopBtn.FlatStyle = FlatStyle.Flat;
             stopBtn.FlatAppearance.BorderSize = 0;
-            stopBtn.BackColor = Color.FromArgb(196, 43, 28);
-            stopBtn.ForeColor = Color.White;
+            stopBtn.BackColor = Theme.DangerButtonBg;
+            stopBtn.ForeColor = Theme.DangerButtonFg;
             stopBtn.Click += delegate { EmergencyStop(); };
             var auditBtn = new Button();
             auditBtn.Text = "审计";
@@ -388,9 +399,9 @@ namespace AhzScribe.Face
             auditBtn.Width = 64;
             auditBtn.FlatStyle = FlatStyle.Flat;
             auditBtn.FlatAppearance.BorderSize = 0;
-            auditBtn.BackColor = Color.FromArgb(45, 48, 54);
-            auditBtn.ForeColor = Color.White;
-            auditBtn.Click += delegate { _tabs.SelectedIndex = 6; UpdateNav(); };
+            auditBtn.BackColor = Theme.BgTertiary;
+            auditBtn.ForeColor = Theme.TextPrimary;
+            auditBtn.Click += delegate { _tabs.SelectedIndex = 3; UpdateNav(); };
             bottom.Controls.Add(stopBtn);
             bottom.Controls.Add(auditBtn);
 
@@ -398,12 +409,12 @@ namespace AhzScribe.Face
             var top = new Panel();
             top.Dock = DockStyle.Top;
             top.Height = 32;
-            top.BackColor = Color.FromArgb(30, 30, 30);
-            _topDot = new Label(); _topDot.Text = "●"; _topDot.AutoSize = false; _topDot.Width = 22; _topDot.Dock = DockStyle.Left; _topDot.TextAlign = ContentAlignment.MiddleCenter; _topDot.ForeColor = Color.FromArgb(0, 122, 204); _topDot.Font = new Font("Segoe UI", 10f);
-            _topIdle = new Label(); _topIdle.Dock = DockStyle.Left; _topIdle.Width = 140; _topIdle.TextAlign = ContentAlignment.MiddleLeft; _topIdle.ForeColor = Color.FromArgb(204, 204, 204); _topIdle.Font = new Font("Microsoft YaHei UI", 9f);
-            _topFore = new Label(); _topFore.Dock = DockStyle.Left; _topFore.Width = 300; _topFore.TextAlign = ContentAlignment.MiddleLeft; _topFore.ForeColor = Color.FromArgb(204, 204, 204); _topFore.Font = new Font("Microsoft YaHei UI", 9f);
-            _topDisk = new Label(); _topDisk.Dock = DockStyle.Right; _topDisk.Width = 150; _topDisk.TextAlign = ContentAlignment.MiddleRight; _topDisk.ForeColor = Color.FromArgb(204, 204, 204); _topDisk.Font = new Font("Consolas", 9f);
-            _topClock = new Label(); _topClock.Dock = DockStyle.Right; _topClock.Width = 90; _topClock.TextAlign = ContentAlignment.MiddleRight; _topClock.ForeColor = Color.FromArgb(204, 204, 204); _topClock.Font = new Font("Consolas", 9f);
+            top.BackColor = Theme.BgPrimary;
+            _topDot = new Label(); _topDot.Text = "●"; _topDot.AutoSize = false; _topDot.Width = 22; _topDot.Dock = DockStyle.Left; _topDot.TextAlign = ContentAlignment.MiddleCenter; _topDot.ForeColor = Theme.StateInfo; _topDot.Font = new Font("Segoe UI", 10f);
+            _topIdle = new Label(); _topIdle.Dock = DockStyle.Left; _topIdle.Width = 140; _topIdle.TextAlign = ContentAlignment.MiddleLeft; _topIdle.ForeColor = Theme.TextPrimary; _topIdle.Font = new Font("Microsoft YaHei UI", 9f);
+            _topFore = new Label(); _topFore.Dock = DockStyle.Left; _topFore.Width = 300; _topFore.TextAlign = ContentAlignment.MiddleLeft; _topFore.ForeColor = Theme.TextPrimary; _topFore.Font = new Font("Microsoft YaHei UI", 9f);
+            _topDisk = new Label(); _topDisk.Dock = DockStyle.Right; _topDisk.Width = 150; _topDisk.TextAlign = ContentAlignment.MiddleRight; _topDisk.ForeColor = Theme.TextPrimary; _topDisk.Font = new Font("Consolas", 9f);
+            _topClock = new Label(); _topClock.Dock = DockStyle.Right; _topClock.Width = 90; _topClock.TextAlign = ContentAlignment.MiddleRight; _topClock.ForeColor = Theme.TextPrimary; _topClock.Font = new Font("Consolas", 9f);
             top.Controls.Add(_topIdle); top.Controls.Add(_topFore); top.Controls.Add(_topDisk); top.Controls.Add(_topClock); top.Controls.Add(_topDot);
 
             var main = new Panel();
@@ -434,7 +445,7 @@ namespace AhzScribe.Face
             var trayMenu = new ContextMenuStrip();
             trayMenu.Items.Add("打开 Ahz Scribe", null, delegate { Show(); WindowState = FormWindowState.Normal; Activate(); });
             trayMenu.Items.Add(new ToolStripSeparator());
-            trayMenu.Items.Add("查看审计", null, delegate { Show(); _tabs.SelectedIndex = 6; UpdateNav(); });
+            trayMenu.Items.Add("查看审计", null, delegate { Show(); _tabs.SelectedIndex = 3; UpdateNav(); });
             trayMenu.Items.Add("急停", null, delegate { EmergencyStop(); });
             trayMenu.Items.Add(new ToolStripSeparator());
             trayMenu.Items.Add("退出", null, delegate { _reallyExit = true; _tray.Visible = false; Close(); });
@@ -562,17 +573,17 @@ namespace AhzScribe.Face
         void AppendHistory(FaceMessage m)
         {
             string role = m.Role ?? "";
-            _output.SelectionColor = role == "你" ? Color.FromArgb(110, 170, 255) : Color.FromArgb(140, 220, 170);
+            _output.SelectionColor = role == "你" ? Theme.StateInfo : Theme.TextPrimary;
             _output.AppendText(role + "：");
-            _output.SelectionColor = Color.FromArgb(220, 224, 230);
+            _output.SelectionColor = Theme.TextPrimary;
             _output.AppendText((m.Text ?? "") + Environment.NewLine + Environment.NewLine);
         }
         void AppendChat(string role, string text, string kind)
         {
             FaceSession.Append(_sessionPath, new FaceMessage { Role = role, Text = text, Kind = kind });
-            _output.SelectionColor = role == "你" ? Color.FromArgb(110, 170, 255) : Color.FromArgb(140, 220, 170);
+            _output.SelectionColor = role == "你" ? Theme.StateInfo : Theme.TextPrimary;
             _output.AppendText(role + "：");
-            _output.SelectionColor = Color.FromArgb(220, 224, 230);
+            _output.SelectionColor = Theme.TextPrimary;
             _output.AppendText((text ?? "") + Environment.NewLine + Environment.NewLine);
             _output.SelectionStart = _output.TextLength;
             _output.ScrollToCaret();
@@ -619,8 +630,8 @@ namespace AhzScribe.Face
             var b = new TextBox();
             b.Text = value ?? "";
             b.Dock = DockStyle.Fill;
-            b.BackColor = Color.FromArgb(38, 41, 48);
-            b.ForeColor = Color.White;
+            b.BackColor = Theme.BgSecondary;
+            b.ForeColor = Theme.TextPrimary;
             b.BorderStyle = BorderStyle.FixedSingle;
             b.Font = new Font("Consolas", 9.5f);
             b.Margin = new Padding(0, 4, 0, 4);
@@ -758,7 +769,7 @@ namespace AhzScribe.Face
                 Directory.CreateDirectory(dir);
                 File.WriteAllText(Path.Combine(dir, "EMERGENCY_STOP"), DateTime.Now.ToString("o"), new UTF8Encoding(false));
                 AppendChat("Ahz", "已急停，所有脉冲停止", "error");
-                if (_topDot != null) _topDot.ForeColor = Color.FromArgb(196, 43, 28);
+                if (_topDot != null) _topDot.ForeColor = Theme.DangerButtonBg;
             }
             catch (Exception ex) { AppendChat("Ahz", "急停失败：" + ex.Message, "error"); }
         }
@@ -776,7 +787,7 @@ namespace AhzScribe.Face
                     _topFore.Text = " 前台 " + fore;
                     _topDisk.Text = "磁盘 " + b.DiskFreeGb.ToString("F0") + "G ";
                     string em = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AhzScribe", "state", "EMERGENCY_STOP");
-                    _topDot.ForeColor = File.Exists(em) ? Color.FromArgb(196, 43, 28) : (b.AgentProcessAlive ? Color.FromArgb(0, 122, 204) : Color.FromArgb(128, 128, 128));
+                    _topDot.ForeColor = File.Exists(em) ? Theme.DangerButtonBg : (b.AgentProcessAlive ? Theme.StateInfo : Theme.StateNeutral);
                     if (_tray != null) _tray.Text = "Ahz Scribe · " + (b.AgentProcessAlive ? "运行中" : "休眠");
                 }
                 int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
@@ -791,6 +802,15 @@ namespace AhzScribe.Face
                 sb.AppendLine();
                 sb.AppendLine(_sensor == null ? "" : _sensor.Summary(b));
                 _statusView.Text = sb.ToString();
+                if (_taskView != null)
+                {
+                    var ts = new StringBuilder();
+                    ts.AppendLine("active_task  " + (st == null ? "" : st.ActiveTask));
+                    ts.AppendLine("started_at   " + (st == null ? "" : st.ActiveTaskStartedAt));
+                    if (st != null && st.OpenIntents != null)
+                        foreach (OpenIntent it in st.OpenIntents) ts.AppendLine(it.Status + "  " + it.CreatedAt + "  " + it.Text);
+                    _taskView.Text = ts.ToString();
+                }
             }
             catch { }
         }
@@ -799,8 +819,8 @@ namespace AhzScribe.Face
             if (_nav == null) return;
             for (int i = 0; i < _nav.Length; i++)
             {
-                _nav[i].BackColor = i == _tabs.SelectedIndex ? Color.FromArgb(30, 46, 72) : Color.FromArgb(18, 20, 24);
-                _nav[i].ForeColor = i == _tabs.SelectedIndex ? Color.White : Color.FromArgb(180, 188, 200);
+                _nav[i].BackColor = i == _tabs.SelectedIndex ? Theme.BgElevated : Theme.BgBase;
+                _nav[i].ForeColor = i == _tabs.SelectedIndex ? Theme.TextPrimary : Theme.TextSecondary;
             }
         }
         void ExtractCurrent()
