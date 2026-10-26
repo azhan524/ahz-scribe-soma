@@ -764,26 +764,58 @@ namespace AhzScribe.Face
             RenderPulse();
         }
 
+        static string Css(Color c) { return "#" + c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2"); }
+
+        static string PulseHtml(string raw)
+        {
+            string time = "";
+            if (raw.Length >= 19) time = raw.Substring(11, 8);
+            string rest = raw.Length > 19 ? raw.Substring(19).Trim() : raw;
+            string source = rest, action = "", reason = "";
+            int slash = rest.IndexOf(" / ", StringComparison.Ordinal);
+            if (slash >= 0)
+            {
+                source = rest.Substring(0, slash).Trim();
+                string[] parts = rest.Substring(slash + 3).Split(new[] { " / " }, StringSplitOptions.None);
+                if (parts.Length >= 2) action = parts[1].Trim();
+                if (parts.Length >= 3) reason = parts[2].Trim();
+            }
+            string color = action == "none" ? "var(--weak)" : (action == "memory" ? "var(--success)" : "var(--text)");
+            var sb = new StringBuilder();
+            sb.Append("<details class='row'><summary><span class='t'>").Append(System.Net.WebUtility.HtmlEncode(time)).Append("</span>");
+            sb.Append("<span class='src'>").Append(System.Net.WebUtility.HtmlEncode(source)).Append("</span>");
+            sb.Append("<span class='act' style='color:").Append(color).Append("'>").Append(System.Net.WebUtility.HtmlEncode(action.Length == 0 ? rest : action)).Append("</span>");
+            if (reason.Length > 0) sb.Append("<span class='why'>").Append(System.Net.WebUtility.HtmlEncode(reason)).Append("</span>");
+            sb.Append("<span class='chev'>▸</span></summary>");
+            sb.Append("<pre class='detail'>").Append(System.Net.WebUtility.HtmlEncode(raw)).Append("</pre></details>");
+            return sb.ToString();
+        }
+
         async void RenderPulse()
         {
             try
             {
                 string p = Path.Combine(_dataDir, "pulse.log");
                 var lines = new List<string>();
-                if (File.Exists(p)) lines = File.ReadLines(p).Reverse().Take(120).Reverse().ToList();
+                if (File.Exists(p)) lines = File.ReadLines(p).Reverse().Take(200).Reverse().ToList();
                 var sb = new StringBuilder();
                 sb.Append("<!doctype html><html><head><meta charset='utf-8'><style>");
-                sb.Append("body{margin:0;padding:12px;background:#1E1E1E;color:#CCCCCC;font:13px 'Microsoft YaHei UI','Segoe UI',sans-serif;}");
-                sb.Append("h2{font:600 14px 'Microsoft YaHei UI';color:#9D9D9D;margin:0 0 10px;}");
-                sb.Append("pre{white-space:pre-wrap;word-break:break-all;margin:0;font:12px Consolas,monospace;line-height:1.5;color:#CCCCCC;}");
-                sb.Append(".empty{color:#808080;font-style:italic;}</style></head><body><h2>脉冲</h2>");
+                sb.Append(":root{--bg:").Append(Css(Theme.BgPrimary)).Append(";--bg2:").Append(Css(Theme.BgSecondary)).Append(";--bg3:").Append(Css(Theme.BgTertiary)).Append(";--elev:").Append(Css(Theme.BgElevated)).Append(";--line:").Append(Css(Theme.BorderSubtle)).Append(";--text:").Append(Css(Theme.TextPrimary)).Append(";--muted:").Append(Css(Theme.TextSecondary)).Append(";--weak:").Append(Css(Theme.TextTertiary)).Append(";--info:").Append(Css(Theme.StateInfo)).Append(";--success:").Append(Css(Theme.StateSuccess)).Append(";--warning:").Append(Css(Theme.StateWarning)).Append(";--danger:").Append(Css(Theme.StateDanger)).Append(";}");
+                sb.Append("*{box-sizing:border-box}body{margin:0;padding:0;background:var(--bg);color:var(--text);font:13px 'Microsoft YaHei UI','Segoe UI',sans-serif;}");
+                sb.Append("header{padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;position:sticky;top:0;}");
+                sb.Append("header input{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:6px 8px;border-radius:4px;font:12px 'Microsoft YaHei UI';}");
+                sb.Append("header span{color:var(--muted);font:12px 'Microsoft YaHei UI';}");
+                sb.Append(".row{border-bottom:1px solid var(--line);} .row:hover{background:var(--elev);} summary{display:flex;gap:10px;align-items:baseline;padding:7px 12px;cursor:pointer;list-style:none;} summary::-webkit-details-marker{display:none;}");
+                sb.Append(".t{font:12px Consolas,monospace;color:var(--muted);min-width:64px;} .src{font:12px Consolas,monospace;color:var(--info);min-width:150px;} .act{font:12px Consolas,monospace;min-width:60px;} .why{font:12px 'Microsoft YaHei UI';color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;} .chev{color:var(--muted);margin-left:auto;font-size:11px;} details[open] .chev{transform:rotate(90deg);}");
+                sb.Append(".detail{margin:0;padding:8px 12px 12px 86px;background:var(--bg3);color:var(--text);font:11.5px Consolas,monospace;white-space:pre-wrap;word-break:break-all;} .empty{color:var(--weak);font-style:italic;padding:18px 12px;}");
+                sb.Append("</style></head><body><header><span>脉冲</span><input id='q' placeholder='搜索 thought / reason / 工具' oninput='filter()'><span id='cnt'></span></header><div id='list'>");
                 if (lines.Count == 0) sb.Append("<div class='empty'>没有脉冲记录</div>");
-                else sb.Append("<pre>").Append(System.Net.WebUtility.HtmlEncode(string.Join("\n", lines.ToArray()))).Append("</pre>");
-                sb.Append("</body></html>");
+                else foreach (string line in lines) sb.Append(PulseHtml(line));
+                sb.Append("</div><script>function filter(){var q=document.getElementById('q').value.toLowerCase();var n=0;document.querySelectorAll('.row').forEach(function(r){var ok=!q||r.innerText.toLowerCase().indexOf(q)>=0;r.style.display=ok?'':'none';if(ok)n++;});document.getElementById('cnt').textContent=n+' 条';}filter();</script></body></html>");
                 await _web.EnsureCoreWebView2Async(null);
-                _web.NavigateToString(sb.ToString());
+                _web.CoreWebView2.NavigateToString(sb.ToString());
             }
-            catch (Exception ex) { _pulseView.Text = ex.Message; }
+            catch (Exception ex) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), ex.ToString() + "\n"); } catch { } }
         }
         void EmergencyStop()
         {
