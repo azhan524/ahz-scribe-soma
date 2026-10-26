@@ -189,6 +189,7 @@ namespace AhzScribe.Face
             _input = new TextBox();
             _input.Dock = DockStyle.Fill;
             _input.Multiline = true;
+            _input.PlaceholderText = "输入问题；/tool 前缀让模型使用工具";
             _input.ScrollBars = ScrollBars.Vertical;
             _input.Font = new Font("Microsoft YaHei UI", 10f);
             _input.BackColor = Color.FromArgb(38, 41, 48);
@@ -237,6 +238,7 @@ namespace AhzScribe.Face
             Append("face v0 · model=" + _modelName);
             Append("输入问题；/tool 前缀让模型使用工具。危险操作会弹确认框。");
             List<FaceMessage> history = FaceSession.Load(_sessionPath, 200);
+            if (history.Count == 0) Append("这是你的连续时间线。没有 /new，也没有会话列表；直接说话就行。");
             foreach (FaceMessage old in history)
             {
                 if (old.Kind == "tool") AppendTrace(old.Text);
