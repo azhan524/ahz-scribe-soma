@@ -735,7 +735,7 @@ namespace AhzScribe.Body
                         w.WriteLine(Json.Dump(req));
                         string line = r.ReadLine();
                         var reply = string.IsNullOrEmpty(line) ? null : Json.Parse<BrokerReply>(line);
-                        if (reply != null && reply.status == "ok" && !string.IsNullOrEmpty(reply.audit_id))
+                        if (reply != null && !string.IsNullOrEmpty(reply.audit_id))
                             return reply.audit_id;
                     }
                 }
