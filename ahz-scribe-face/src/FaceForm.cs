@@ -189,6 +189,8 @@ namespace AhzScribe.Face
         Icon _trayIcon;
         readonly System.Windows.Forms.Timer _breathTimer;
         bool _breathing;
+        bool _busySend;
+        readonly Queue<string> _pendingSends = new Queue<string>();
         readonly TextBox _taskView;
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
         readonly NotifyIcon _tray;
@@ -1622,6 +1624,8 @@ namespace AhzScribe.Face
                 AppendChat("Ahz", hits.Count == 0 ? "没有命中记忆" : string.Join("\n", hits.Select(x => "[" + x.Kind + "] " + x.Key + " = " + x.Value)), "chat");
                 return;
             }
+            if (_busySend) { _pendingSends.Enqueue(text); _status.Text = _pendingSends.Count + " 条待发送"; return; }
+            _busySend = true;
             bool taskStarted = false;
             _send.Enabled = false;
             try
@@ -1640,7 +1644,19 @@ namespace AhzScribe.Face
             UpdateStatus();
             }
             catch (Exception ex) { Append("错误：" + ex.Message); }
-            finally { if (taskStarted) FaceSession.EndTask(_sessionPath); _send.Enabled = true; _input.Focus(); }
+            finally
+            {
+                if (taskStarted) FaceSession.EndTask(_sessionPath);
+                _send.Enabled = true;
+                _busySend = false;
+                if (_pendingSends.Count > 0)
+                {
+                    _input.Text = _pendingSends.Dequeue();
+                    _status.Text = _pendingSends.Count + " 条待发送";
+                    BeginInvoke(new Action(SendAsync));
+                }
+                else { _status.Text = "episode -   memory 0   body " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body"); _input.Focus(); }
+            }
         }
 
         static string DescribeArgs(BrainToolCall call)
