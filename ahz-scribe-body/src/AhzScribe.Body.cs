@@ -171,6 +171,9 @@ namespace AhzScribe.Body
                     case "network_fetch": result.Output = NetworkFetch(request, ct); break;
                     case "browser_open": result.Output = BrowserOpen(request); break;
                     case "desktop_uia_tree": result.Output = DesktopUiaTree(); break;
+                    case "desktop_uia_find": result.Output = DesktopUiaFind(request); break;
+                    case "desktop_uia_click": result.Output = DesktopUiaClick(request); break;
+                    case "desktop_uia_settext": result.Output = DesktopUiaSetText(request); break;
                     case "browser_read": result.Output = NetworkFetch(request, ct); break;
                     case "desktop_list_windows": result.Output = DesktopWindows(); break;
                     case "process_list": result.Output = ProcessList(); break;
@@ -597,6 +600,99 @@ namespace AhzScribe.Body
             t.Start();
             t.Join(8000);
             return error.Length > 0 ? error : (output.Length > 0 ? output : "uia empty");
+        }
+        static string UiaRun(Func<string> action)
+        {
+            string output = "";
+            string error = "";
+            Thread t = new Thread(delegate()
+            {
+                try { output = action(); }
+                catch (Exception ex) { error = ex.GetType().Name + ": " + ex.Message; }
+            });
+            t.SetApartmentState(ApartmentState.STA);
+            t.IsBackground = true;
+            t.Start();
+            t.Join(10000);
+            return error.Length > 0 ? "ERROR " + error : (output.Length > 0 ? output : "no match");
+        }
+
+        AutomationElement UiaFindOne(string name, string id)
+        {
+            using (var automation = new UIA3Automation())
+            {
+                AutomationElement desktop = automation.GetDesktop();
+                foreach (AutomationElement e in desktop.FindAllDescendants())
+                {
+                    try
+                    {
+                        if (name.Length > 0 && !string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase)) continue;
+                        if (id.Length > 0 && !string.Equals(e.AutomationId, id, StringComparison.OrdinalIgnoreCase)) continue;
+                        if (name.Length == 0 && id.Length == 0) continue;
+                        return e;
+                    }
+                    catch { }
+                }
+            }
+            return null;
+        }
+
+        string DesktopUiaFind(ActionRequest r)
+        {
+            string name = r.Args.ContainsKey("name") ? Convert.ToString(r.Args["name"]) : "";
+            string id = r.Args.ContainsKey("automation_id") ? Convert.ToString(r.Args["automation_id"]) : "";
+            return UiaRun(delegate()
+            {
+                var lines = new List<string>();
+                using (var automation = new UIA3Automation())
+                {
+                    foreach (AutomationElement e in automation.GetDesktop().FindAllDescendants())
+                    {
+                        try
+                        {
+                            string n = e.Name ?? "";
+                            string aid = e.AutomationId ?? "";
+                            if (name.Length > 0 && n.IndexOf(name, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                            if (id.Length > 0 && aid.IndexOf(id, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                            int pid = 0; try { pid = e.Properties.ProcessId.Value; } catch { }
+                            string type = "?"; try { type = e.ControlType.ToString(); } catch { }
+                            lines.Add(pid + " | " + type + " | " + aid + " | " + n);
+                            if (lines.Count >= 40) break;
+                        }
+                        catch { }
+                    }
+                }
+                return lines.Count == 0 ? "no match" : string.Join("\n", lines.ToArray());
+            });
+        }
+
+        string DesktopUiaClick(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved) throw new UnauthorizedAccessException("desktop_uia_click requires Full and Approved");
+            string name = r.Args.ContainsKey("name") ? Convert.ToString(r.Args["name"]) : "";
+            string id = r.Args.ContainsKey("automation_id") ? Convert.ToString(r.Args["automation_id"]) : "";
+            return UiaRun(delegate()
+            {
+                AutomationElement e = UiaFindOne(name, id);
+                if (e == null) return "no match";
+                e.Click();
+                return "clicked " + e.Name;
+            });
+        }
+
+        string DesktopUiaSetText(ActionRequest r)
+        {
+            if (r.Tier != PermissionTier.Full || !r.Approved) throw new UnauthorizedAccessException("desktop_uia_settext requires Full and Approved");
+            string name = r.Args.ContainsKey("name") ? Convert.ToString(r.Args["name"]) : "";
+            string id = r.Args.ContainsKey("automation_id") ? Convert.ToString(r.Args["automation_id"]) : "";
+            string text = r.Args.ContainsKey("text") ? Convert.ToString(r.Args["text"]) : "";
+            return UiaRun(delegate()
+            {
+                AutomationElement e = UiaFindOne(name, id);
+                if (e == null) return "no match";
+                e.AsTextBox().Text = text;
+                return "set " + e.Name;
+            });
         }
         string BrowserOpen(ActionRequest r)
         {
