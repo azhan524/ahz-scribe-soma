@@ -187,6 +187,7 @@ namespace AhzScribe.Face
         readonly TextBox _taskView;
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
         readonly NotifyIcon _tray;
+        ToolStripMenuItem _trayStatus, _trayPulse;
         readonly System.Windows.Forms.Timer _clockTimer;
         readonly UIStateBus _uiBus = new UIStateBus();
         bool _reallyExit;
@@ -233,6 +234,7 @@ namespace AhzScribe.Face
             _memory = new MemoryStore(Path.Combine(_dataDir, "memory.jsonl"));
             _host = new BrainHost(_memory, CreateModel(out _modelName));
             _host.Trace = delegate(string line) { AppendTrace(line); };
+            try { FaceAudit.Append(_dataDir, "startup", "startup", "ok", "face", "startup"); } catch { }
             _uiBus.Changed += ApplyUiSnapshot;
             _pulseBody = new FacePulseBody();
             _pulse = new PulseScheduler(_pulseBody, _memory, new FacePulseAudit(AppendTrace, Path.Combine(_dataDir, "pulse.log")),
@@ -648,6 +650,9 @@ namespace AhzScribe.Face
             var trayMenu = new ContextMenuStrip();
             trayMenu.Items.Add("打开 Ahz Scribe", null, delegate { Show(); WindowState = FormWindowState.Normal; Activate(); });
             trayMenu.Items.Add(new ToolStripSeparator());
+            _trayStatus = new ToolStripMenuItem("当前状态：—"); _trayStatus.Enabled = false; trayMenu.Items.Add(_trayStatus);
+            _trayPulse = new ToolStripMenuItem("最近脉冲：—"); _trayPulse.Enabled = false; trayMenu.Items.Add(_trayPulse);
+            trayMenu.Items.Add(new ToolStripSeparator());
             trayMenu.Items.Add("查看审计", null, delegate { Show(); _tabs.SelectedIndex = 3; UpdateNav(); });
             trayMenu.Items.Add("急停", null, delegate { EmergencyStop(); });
             trayMenu.Items.Add(new ToolStripSeparator());
@@ -990,6 +995,11 @@ namespace AhzScribe.Face
             if (InvokeRequired) { BeginInvoke(new Action<UiSnapshot>(ApplyUiSnapshot), s); return; }
             BodyStatus b = s.Body ?? new BodyStatus();
             FaceState st = s.State;
+            if (_trayStatus != null)
+            {
+                _trayStatus.Text = "当前状态：" + (b.AgentProcessAlive ? "运行中" : "休眠") + " · 空闲 " + (b.IdleSeconds / 60) + " 分";
+                _trayPulse.Text = "最近脉冲：" + (st == null || st.LastPulseTrigger == null ? "—" : st.LastPulseTrigger.Type + " " + st.LastPulseTrigger.ReceivedAt);
+            }
             if (_topIdle != null)
             {
                 string fore = b.ForegroundApp ?? "";
