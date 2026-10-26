@@ -202,6 +202,7 @@ namespace AhzScribe.Face
         readonly TextBox _memoryFilter;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe, _setBodyData;
         readonly CheckBox _setNoProxy;
+        readonly NumericUpDown _setProactiveMax, _setQuietStart, _setQuietEnd, _setPauseHours;
         readonly TabControl _tabs;
         readonly Label _status;
         readonly Panel _side;
@@ -391,6 +392,10 @@ namespace AhzScribe.Face
             _setNoProxy.ForeColor = Theme.TextPrimary;
             _setNoProxy.Checked = _settings.ModelNoProxy;
             _setWorkspace.PlaceholderText = "工作区路径；留空则不能自我迭代";
+            _setProactiveMax = MakeNumber(0, 20, _settings.ProactiveDailyMax);
+            _setQuietStart = MakeNumber(0, 23, _settings.QuietStartHour);
+            _setQuietEnd = MakeNumber(0, 23, _settings.QuietEndHour);
+            _setPauseHours = MakeNumber(1, 168, _settings.UnansweredPauseHours);
 
             _tabs = new TabControl();
             _tabs.Dock = DockStyle.Fill;
@@ -512,7 +517,13 @@ namespace AhzScribe.Face
             settingsFlow.Controls.Add(MakeInfoGroup("权限", "工具分级：ReadOnly / WorkspaceWrite / Full\\nFull 操作逐次审批，审计写入 ProgramData"));
             settingsFlow.Controls.Add(MakeInfoGroup("记忆", "语义 / 情节 / disputed 三类记忆\\n24 小时去重，冲突标记 disputed"));
             settingsFlow.Controls.Add(MakeInfoGroup("脉冲", "周期 60 秒\\n优先级：user_message > intent_due > body_event > drive > timer"));
-            settingsFlow.Controls.Add(MakeInfoGroup("主动性", "每日最多 2 条\\n23:00–08:00 静默，连续未回复暂停 24 小时"));
+            var proactiveGroup = MakeGroup("主动性");
+            proactiveGroup.Height = 180;
+            proactiveGroup.Controls.Add(MakeSettingRow("每日上限", _setProactiveMax));
+            proactiveGroup.Controls.Add(MakeSettingRow("静默开始", _setQuietStart));
+            proactiveGroup.Controls.Add(MakeSettingRow("静默结束", _setQuietEnd));
+            proactiveGroup.Controls.Add(MakeSettingRow("未回复暂停小时", _setPauseHours));
+            settingsFlow.Controls.Add(proactiveGroup);
             settingsFlow.Controls.Add(MakePersonaGroup());
             settingsPage.Controls.Add(settingsFlow);
             var taskPage = new TabPage("任务");
@@ -1139,6 +1150,18 @@ namespace AhzScribe.Face
             g.Controls.Add(l);
             return g;
         }
+        static NumericUpDown MakeNumber(int min, int max, int value)
+        {
+            var n = new NumericUpDown();
+            n.Minimum = min;
+            n.Maximum = max;
+            n.Value = Math.Min(max, Math.Max(min, value));
+            n.Dock = DockStyle.Fill;
+            n.BackColor = Theme.BgSecondary;
+            n.ForeColor = Theme.TextPrimary;
+            n.BorderStyle = BorderStyle.FixedSingle;
+            return n;
+        }
         static Panel MakeSettingRow(string label, Control control)
         {
             var p = new Panel();
@@ -1499,6 +1522,10 @@ namespace AhzScribe.Face
             _settings.BodyPipe = _setPipe.Text.Trim();
             _settings.BodyData = _setBodyData.Text.Trim();
             _settings.ModelNoProxy = _setNoProxy.Checked;
+            _settings.ProactiveDailyMax = (int)_setProactiveMax.Value;
+            _settings.QuietStartHour = (int)_setQuietStart.Value;
+            _settings.QuietEndHour = (int)_setQuietEnd.Value;
+            _settings.UnansweredPauseHours = (int)_setPauseHours.Value;
             if (_setNoProxy.Checked) Environment.SetEnvironmentVariable("AHZ_MODEL_NOPROXY", "1");
             else Environment.SetEnvironmentVariable("AHZ_MODEL_NOPROXY", "");
             _settings.Save(_dataDir);
