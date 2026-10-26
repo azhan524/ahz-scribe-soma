@@ -3,7 +3,6 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
-    <PlatformTarget>x64</PlatformTarget>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -12,8 +11,5 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\ahz-scribe-brain\src\AhzScribe.Brain.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="CefSharp.WinForms.NETCore" Version="154.0.340" />
   </ItemGroup>
 </Project>
