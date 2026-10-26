@@ -488,6 +488,11 @@ namespace AhzScribe.Face
             settingsFlow.Controls.Add(llmGroup);
             settingsFlow.Controls.Add(bodyGroup);
             settingsFlow.Controls.Add(safetyGroup);
+            settingsFlow.Controls.Add(MakeInfoGroup("权限", "工具分级：ReadOnly / WorkspaceWrite / Full\\nFull 操作逐次审批，审计写入 ProgramData"));
+            settingsFlow.Controls.Add(MakeInfoGroup("记忆", "语义 / 情节 / disputed 三类记忆\\n24 小时去重，冲突标记 disputed"));
+            settingsFlow.Controls.Add(MakeInfoGroup("脉冲", "周期 60 秒\\n优先级：user_message > intent_due > body_event > drive > timer"));
+            settingsFlow.Controls.Add(MakeInfoGroup("主动性", "每日最多 2 条\\n23:00–08:00 静默，连续未回复暂停 24 小时"));
+            settingsFlow.Controls.Add(MakeInfoGroup("人格", "SOUL.md / BOUNDARIES.md / STYLE.md\\n由工作区文件维护"));
             settingsPage.Controls.Add(settingsFlow);
             var taskPage = new TabPage("任务");
             taskPage.BackColor = Theme.BgPrimary;
@@ -1051,6 +1056,19 @@ namespace AhzScribe.Face
             return g;
         }
 
+        static GroupBox MakeInfoGroup(string title, string text)
+        {
+            var g = MakeGroup(title);
+            g.Height = 80;
+            var l = new Label();
+            l.Text = text;
+            l.Dock = DockStyle.Fill;
+            l.ForeColor = Theme.TextPrimary;
+            l.Font = new Font("Microsoft YaHei UI", 9f);
+            l.Padding = new Padding(8, 20, 8, 8);
+            g.Controls.Add(l);
+            return g;
+        }
         static Panel MakeSettingRow(string label, Control control)
         {
             var p = new Panel();
