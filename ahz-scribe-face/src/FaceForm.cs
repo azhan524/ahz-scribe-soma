@@ -217,7 +217,11 @@ namespace AhzScribe.Face
             search.ForeColor = Color.FromArgb(180, 188, 200);
             search.TextAlign = ContentAlignment.MiddleLeft;
             search.Padding = new Padding(18, 0, 0, 0);
-            search.Click += delegate { using (var f = new HistorySearchForm(_sessionPath)) f.ShowDialog(this); };
+            search.Click += delegate
+            {
+                using (var f = new HistorySearchForm(_sessionPath))
+                    if (f.ShowDialog(this) == DialogResult.OK && f.SelectedMessage != null) JumpTo(f.SelectedMessage);
+            };
             _side.Controls.Add(search);
             _side.Controls.Add(brand);
             _tabs.SelectedIndexChanged += delegate { UpdateNav(); };
@@ -434,6 +438,20 @@ namespace AhzScribe.Face
                 _status.Text = "episode " + ep + "   memory " + mem + "   body " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body");
             }
             catch { }
+        }
+        void JumpTo(FaceMessage m)
+        {
+            _tabs.SelectedIndex = 0;
+            string needle = (m.Role ?? "") + "：" + (m.Text ?? "");
+            int i = _output.Find(needle, RichTextBoxFinds.None);
+            if (i < 0 && !string.IsNullOrEmpty(m.Text))
+                i = _output.Find(m.Text, RichTextBoxFinds.None);
+            if (i >= 0)
+            {
+                _output.Select(i, needle.Length);
+                _output.ScrollToCaret();
+                _output.Focus();
+            }
         }
         void UpdateNav()
         {

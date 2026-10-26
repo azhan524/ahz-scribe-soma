@@ -11,6 +11,8 @@ namespace AhzScribe.Face
         readonly TextBox _query;
         readonly ListBox _results;
         readonly Label _count;
+        readonly List<FaceMessage> _shown = new List<FaceMessage>();
+        public FaceMessage SelectedMessage { get; private set; }
 
         public HistorySearchForm(string sessionPath)
         {
@@ -38,6 +40,8 @@ namespace AhzScribe.Face
             _results.ForeColor = Color.FromArgb(210, 218, 228);
             _results.BorderStyle = BorderStyle.None;
             _results.Font = new Font("Consolas", 9f);
+            _results.DoubleClick += delegate { Pick(); };
+            _results.KeyDown += delegate(object s, KeyEventArgs e) { if (e.KeyCode == Keys.Enter) Pick(); };
 
             _count = new Label();
             _count.Dock = DockStyle.Bottom;
@@ -52,11 +56,20 @@ namespace AhzScribe.Face
             Search();
         }
 
+        void Pick()
+        {
+            int i = _results.SelectedIndex;
+            if (i < 0 || i >= _shown.Count) return;
+            SelectedMessage = _shown[i];
+            DialogResult = DialogResult.OK;
+            Close();
+        }
         void Search()
         {
             string q = _query.Text.Trim();
             _results.BeginUpdate();
             _results.Items.Clear();
+            _shown.Clear();
             int n = 0;
             foreach (FaceMessage m in _all)
             {
@@ -65,6 +78,7 @@ namespace AhzScribe.Face
                 string line = (m.Role ?? "") + "：" + text.Replace("\r", " ").Replace("\n", " ");
                 if (line.Length > 260) line = line.Substring(0, 260) + "…";
                 _results.Items.Add(line);
+                _shown.Add(m);
                 n++;
                 if (n >= 500) break;
             }
