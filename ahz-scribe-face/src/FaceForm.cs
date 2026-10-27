@@ -244,7 +244,7 @@ namespace AhzScribe.Face
         readonly TextBox _pulseView;
         readonly WebView2 _web;
         readonly Panel _htmlHost;
-        Panel _webErrorPanel; Label _webErrorLabel; Button _webRetry; int _webFailures; bool _webPermanent;
+        Panel _webErrorPanel; Label _webErrorLabel; ListBox _webSnapshot; Button _webRetry; int _webFailures; bool _webPermanent;
         string _auditFocus;
         readonly Label _stateFocus, _stateIntents, _stateBody, _statePulse, _stateMood;
         Panel _hintPanel;
@@ -430,11 +430,19 @@ namespace AhzScribe.Face
             _webErrorPanel.BackColor = Theme.BgPrimary;
             _webErrorPanel.Visible = false;
             _webErrorLabel = new Label();
-            _webErrorLabel.Dock = DockStyle.Fill;
+            _webErrorLabel.Dock = DockStyle.Top;
+            _webErrorLabel.Height = 64;
             _webErrorLabel.ForeColor = Theme.StateWarning;
             _webErrorLabel.Font = new Font("Microsoft YaHei UI", 10f);
             _webErrorLabel.Padding = new Padding(24);
             _webErrorLabel.Text = "HTML 面板不可用";
+            _webSnapshot = new ListBox();
+            _webSnapshot.Dock = DockStyle.Fill;
+            _webSnapshot.BackColor = Theme.BgPrimary;
+            _webSnapshot.ForeColor = Theme.TextSecondary;
+            _webSnapshot.BorderStyle = BorderStyle.None;
+            _webSnapshot.Font = new Font("Consolas", 9f);
+            _webSnapshot.Visible = false;
             _webRetry = new Button();
             _webRetry.Text = "重试";
             _webRetry.Dock = DockStyle.Bottom;
@@ -444,7 +452,8 @@ namespace AhzScribe.Face
             _webRetry.FlatAppearance.BorderSize = 0;
             _webRetry.BackColor = Theme.BgTertiary;
             _webRetry.ForeColor = Theme.TextPrimary;
-            _webRetry.Click += delegate { if (_webPermanent) return; _webErrorPanel.Visible = false; _htmlHost.Visible = true; try { RenderPulse(); } catch { } };
+            _webRetry.Click += delegate { if (_webPermanent) return; _webSnapshot.Visible = false; _webErrorLabel.Visible = true; _webErrorPanel.Visible = false; _htmlHost.Visible = true; try { RenderPulse(); } catch { } };
+            _webErrorPanel.Controls.Add(_webSnapshot);
             _webErrorPanel.Controls.Add(_webErrorLabel);
             _webErrorPanel.Controls.Add(_webRetry);
             _web.CoreWebView2InitializationCompleted += delegate(object s, Microsoft.Web.WebView2.Core.CoreWebView2InitializationCompletedEventArgs e)
@@ -1484,23 +1493,38 @@ namespace AhzScribe.Face
             try
             {
                 int size = DeviceDpi >= 192 ? 48 : (DeviceDpi >= 144 ? 32 : 16);
-                using (var bmp = new Bitmap(size, size))
-                using (Graphics g = Graphics.FromImage(bmp))
+                string name = "info";
+                if (color == Theme.StateSuccess) name = "success";
+                else if (color == Theme.StateWarning) name = "warning";
+                else if (color == Theme.StateDanger) name = "danger";
+                else if (color == Theme.StateDrive) name = "drive";
+                else if (color == Theme.StateNeutral) name = "neutral";
+                else if (color == Theme.TextSecondary) name = "neutral";
+                string png = Path.Combine(AppContext.BaseDirectory, "assets", "tray", name + "-" + size + ".png");
+                Icon next = null;
+                if (File.Exists(png))
                 {
-                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                    g.Clear(Color.Transparent);
-                    using (Brush b = new SolidBrush(color)) g.FillEllipse(b, size / 5, size / 5, size * 3 / 5, size * 3 / 5);
-                    IntPtr h = bmp.GetHicon();
-                    Icon next = Icon.FromHandle(h);
-                    Icon old = _trayIcon;
-                    _trayIcon = next;
-                    _tray.Icon = next;
-                    if (old != null) old.Dispose();
+                    using (var bmp = new Bitmap(png))
+                        next = Icon.FromHandle(bmp.GetHicon());
                 }
+                if (next == null)
+                {
+                    using (var bmp = new Bitmap(size, size))
+                    using (Graphics g = Graphics.FromImage(bmp))
+                    {
+                        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                        g.Clear(Color.Transparent);
+                        using (Brush b = new SolidBrush(color)) g.FillEllipse(b, size / 5, size / 5, size * 3 / 5, size * 3 / 5);
+                        next = Icon.FromHandle(bmp.GetHicon());
+                    }
+                }
+                Icon old = _trayIcon;
+                _trayIcon = next;
+                _tray.Icon = next;
+                if (old != null) old.Dispose();
             }
             catch { }
-        }
-        void ApplyUiSnapshot(UiSnapshot s)
+        }        void ApplyUiSnapshot(UiSnapshot s)
         {
             if (s == null) return;
             if (InvokeRequired) { BeginInvoke(new Action<UiSnapshot>(ApplyUiSnapshot), s); return; }
@@ -1556,6 +1580,34 @@ namespace AhzScribe.Face
             _webErrorLabel.Text = "HTML 面板不可用\n" + reason + "\n失败次数：" + _webFailures + "/3" + (_webPermanent ? "\n已进入只读模式，重试已禁用。" : "\n点击下方重试。");
             _webRetry.Enabled = !_webPermanent;
             _webRetry.Text = _webPermanent ? "只读模式" : "重试";
+        }
+        void FillWebSnapshot()
+        {
+            try
+            {
+                _webSnapshot.Items.Clear();
+                string p = Path.Combine(_dataDir, "pulse.jsonl");
+                if (File.Exists(p))
+                {
+                    foreach (string line in File.ReadLines(p).Reverse().Take(50).Reverse())
+                    {
+                        try
+                        {
+                            using (var doc = System.Text.Json.JsonDocument.Parse(line))
+                            {
+                                var r = doc.RootElement;
+                                string ts = r.TryGetProperty("ts", out var t) ? t.GetString() : "";
+                                string act = r.TryGetProperty("action", out var a) ? a.GetString() : "";
+                                string why = r.TryGetProperty("reason", out var w) ? w.GetString() : "";
+                                _webSnapshot.Items.Add((ts.Length >= 19 ? ts.Substring(11, 8) : ts) + "  " + act + "  " + why);
+                            }
+                        }
+                        catch { }
+                    }
+                }
+                if (_webSnapshot.Items.Count == 0) _webSnapshot.Items.Add("（没有可用的脉冲快照）");
+            }
+            catch { }
         }
         void ShowHtmlTab()
         {
