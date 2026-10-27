@@ -20,6 +20,7 @@ namespace AhzScribe.Brain
         public Action<string> Trace { get; set; }
         public IBrainModel Model { get { return _model; } }
         public string BodySummary { get; set; }
+        public string UiSummary { get; set; }
         public SelfIterationPolicy Policy { get; set; }
         public Func<BrainToolCall, CancellationToken, Task<bool>> Propose { get; set; }
 
@@ -35,6 +36,7 @@ namespace AhzScribe.Brain
         public Task<string> AskAsync(string text, CancellationToken ct)
         {
             _textRunner.BodySummary = BodySummary;
+            _textRunner.UiSummary = UiSummary;
             return _textRunner.RunAsync(text, ct);
         }
 

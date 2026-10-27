@@ -1255,6 +1255,10 @@ namespace AhzScribe.Face
                 _trayStatus.Text = "当前状态：" + (b.AgentProcessAlive ? "运行中" : "休眠") + " · 空闲 " + (b.IdleSeconds / 60) + " 分";
                 _trayPulse.Text = "最近脉冲：" + (st == null || st.LastPulseTrigger == null ? "—" : st.LastPulseTrigger.Type + " " + st.LastPulseTrigger.ReceivedAt);
             }
+            if (_host != null)
+            {
+                _host.UiSummary = "主窗口：" + (Visible ? "打开" : "托盘") + "; 当前 Tab：" + _tabs.SelectedTab.Text + "; 焦点：" + (st == null ? "" : st.CurrentFocus) + "; 未完成意图：" + (st == null || st.OpenIntents == null ? 0 : st.OpenIntents.Count(x => x.Status == "open" || x.Status == "monitoring")) + "; 最近脉冲：" + (st == null || st.LastPulseTrigger == null ? "—" : st.LastPulseTrigger.Type);
+            }
             if (_topIdle != null)
             {
                 string fore = b.ForegroundApp ?? "";
