@@ -1717,6 +1717,8 @@ namespace AhzScribe.Face
                 sb.AppendLine("body     " + (Environment.GetEnvironmentVariable("AHZ_BODY_PIPE") ?? "ahz-scribe-body"));
                 sb.AppendLine("memory   " + _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count + " 条");
                 sb.AppendLine("webview  " + (_web != null && _web.CoreWebView2 != null ? "OK" : "未初始化"));
+                sb.AppendLine("config   " + (_settings != null && _settings.SchemaVersion == 1 ? "OK" : "schema mismatch"));
+                sb.AppendLine("sensor   " + (_bodyTimer != null ? "OK" : "missing"));
                 sb.AppendLine("state    " + (_sessionPath ?? "-"));
                 AppendChat("Ahz", sb.ToString(), "chat");
                 return;

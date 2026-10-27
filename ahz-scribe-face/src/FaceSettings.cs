@@ -7,6 +7,7 @@ namespace AhzScribe.Face
 {
     public sealed class FaceSettings
     {
+        public int SchemaVersion { get; set; } = 1;
         public string BaseUrl { get; set; } = "https://api.deepseek.com";
         public string Model { get; set; } = "deepseek-v4-pro";
         public string Workspace { get; set; } = "";
