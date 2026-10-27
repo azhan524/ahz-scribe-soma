@@ -807,7 +807,7 @@ namespace AhzScribe.Face
             right.Controls.Add(_htmlHost);
             right.Controls.Add(_tabs);
             right.Controls.Add(tabBar);
-            right.Padding = new Padding(0, 36, 0, 0);
+            right.Padding = new Padding(0, 42, 0, 0);
             tabBar.BringToFront();
             _tabs.Resize += delegate { FixTabPages(); };
             main.Controls.Add(right);
