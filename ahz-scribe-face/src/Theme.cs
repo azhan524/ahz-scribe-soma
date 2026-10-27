@@ -28,7 +28,6 @@ namespace AhzScribe.Face
         public static readonly Color StateDrive = Color.FromArgb(0xC5, 0x86, 0xC0);
         public static readonly Color StateNeutral = Color.FromArgb(0x80, 0x80, 0x80);
 
-        public static readonly Color DangerButtonBg = Color.FromArgb(0xC4, 0x2B, 0x1C);
         public static readonly Color DangerButtonFg = Color.White;
     }
 }
