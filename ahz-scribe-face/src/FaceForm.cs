@@ -625,6 +625,10 @@ namespace AhzScribe.Face
             brand.Font = new Font("Consolas", 13f, FontStyle.Bold);
             brand.ForeColor = Theme.StateInfo;
             _side.Controls.Add(brand);
+            var tabBar = new Panel();
+            tabBar.Dock = DockStyle.Top;
+            tabBar.Height = 36;
+            tabBar.BackColor = Theme.BgTertiary;
             string[] navNames = { "对话", "脉冲", "记忆", "审计", "任务", "设置" };
             _nav = new Button[navNames.Length];
             for (int i = navNames.Length - 1; i >= 0; i--)
@@ -632,17 +636,18 @@ namespace AhzScribe.Face
                 int index = i;
                 var b = new Button();
                 b.Text = navNames[i];
-                b.Dock = DockStyle.Top;
-                b.Height = 46;
+                b.Dock = DockStyle.Left;
+                b.Width = 86;
+                b.Height = 36;
                 b.FlatStyle = FlatStyle.Flat;
                 b.FlatAppearance.BorderSize = 0;
                 b.BackColor = Theme.BgBase;
                 b.ForeColor = Theme.TextSecondary;
-                b.TextAlign = ContentAlignment.MiddleLeft;
-                b.Padding = new Padding(18, 0, 0, 0);
+                b.TextAlign = ContentAlignment.MiddleCenter;
+                b.Padding = new Padding(0);
                 b.Click += delegate { _tabs.SelectedIndex = index; UpdateNav(); };
                 b.Paint += delegate(object s, PaintEventArgs e) { if (_tabs != null && index == _tabs.SelectedIndex) { using (var pen = new Pen(Theme.StateInfo, 2)) e.Graphics.DrawLine(pen, 0, b.Height - 2, b.Width, b.Height - 2); } };
-                _side.Controls.Add(b);
+                tabBar.Controls.Add(b);
                 _nav[i] = b;
             }
             var search = new Button();
@@ -768,12 +773,14 @@ namespace AhzScribe.Face
 
             var main = new Panel();
             main.Dock = DockStyle.Fill;
-            var content = new Panel();
-            content.Dock = DockStyle.Fill;
-            content.Controls.Add(_htmlHost);
-            content.Controls.Add(_tabs);
+            var right = new Panel();
+            right.Dock = DockStyle.Fill;
+            right.Controls.Add(_htmlHost);
+            right.Controls.Add(_tabs);
+            right.Controls.Add(tabBar);
+            tabBar.BringToFront();
             _tabs.Resize += delegate { FixTabPages(); };
-            main.Controls.Add(content);
+            main.Controls.Add(right);
             main.Controls.Add(_side);
             var root = new TableLayoutPanel();
             root.Dock = DockStyle.Fill;

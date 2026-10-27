@@ -71,3 +71,7 @@ p2.err
 smoke*.out
 smoke*.err
 
+
+tt.out
+tt.err
+
