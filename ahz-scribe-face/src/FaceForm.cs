@@ -600,6 +600,7 @@ namespace AhzScribe.Face
             _side = new Panel();
             _side.Dock = DockStyle.Left;
             _side.Width = 260;
+            _side.AutoScroll = true;
             _side.BackColor = Theme.BgBase;
             var statePanel = new Panel();
             statePanel.Dock = DockStyle.Bottom;
