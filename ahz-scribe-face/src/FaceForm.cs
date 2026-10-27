@@ -1494,19 +1494,29 @@ namespace AhzScribe.Face
             try
             {
                 int size = DeviceDpi >= 192 ? 48 : (DeviceDpi >= 144 ? 32 : 16);
-                string name = "info";
-                if (color == Theme.StateSuccess) name = "success";
-                else if (color == Theme.StateWarning) name = "warning";
-                else if (color == Theme.StateDanger) name = "danger";
-                else if (color == Theme.StateDrive) name = "drive";
-                else if (color == Theme.StateNeutral) name = "neutral";
-                else if (color == Theme.TextSecondary) name = "neutral";
-                string png = Path.Combine(AppContext.BaseDirectory, "assets", "tray", name + "-" + size + ".png");
+                string basePng = Path.Combine(AppContext.BaseDirectory, "assets", "tray", "white-" + size + ".png");
                 Icon next = null;
-                if (File.Exists(png))
+                if (File.Exists(basePng))
                 {
-                    using (var bmp = new Bitmap(png))
-                        next = Icon.FromHandle(bmp.GetHicon());
+                    using (var src = new Bitmap(basePng))
+                    using (var tinted = new Bitmap(size, size))
+                    using (var g = Graphics.FromImage(tinted))
+                    {
+                        var matrix = new System.Drawing.Imaging.ColorMatrix(new float[][]
+                        {
+                            new float[] { color.R / 255f, 0, 0, 0, 0 },
+                            new float[] { 0, color.G / 255f, 0, 0, 0 },
+                            new float[] { 0, 0, color.B / 255f, 0, 0 },
+                            new float[] { 0, 0, 0, 1, 0 },
+                            new float[] { 0, 0, 0, 0, 1 }
+                        });
+                        using (var ia = new System.Drawing.Imaging.ImageAttributes())
+                        {
+                            ia.SetColorMatrix(matrix);
+                            g.DrawImage(src, new Rectangle(0, 0, size, size), 0, 0, src.Width, src.Height, GraphicsUnit.Pixel, ia);
+                        }
+                        next = Icon.FromHandle(tinted.GetHicon());
+                    }
                 }
                 if (next == null)
                 {
