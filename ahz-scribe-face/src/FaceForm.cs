@@ -240,6 +240,7 @@ namespace AhzScribe.Face
         readonly System.Windows.Forms.Timer _breathTimer;
         bool _breathing;
         bool _busySend;
+        DateTime _lastBodySample;
         readonly Queue<string> _pendingSends = new Queue<string>();
         readonly TextBox _taskView;
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
@@ -1116,6 +1117,7 @@ namespace AhzScribe.Face
                 s.ActiveTask = st != null && !string.IsNullOrEmpty(st.ActiveTask);
                 string path = Path.Combine(_dataDir, "body_state.json");
                 File.WriteAllText(path, JsonSerializer.Serialize(s), new UTF8Encoding(false));
+                _lastBodySample = DateTime.Now;
                 _host.BodySummary = _sensor.Summary(s);
                 UpdateStatus();
             }
@@ -1724,7 +1726,7 @@ namespace AhzScribe.Face
                 sb.AppendLine("memory   " + _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count + " 条");
                 sb.AppendLine("webview  " + (_web != null && _web.CoreWebView2 != null ? "OK" : "未初始化"));
                 sb.AppendLine("config   " + (_settings != null && _settings.SchemaVersion == 1 ? "OK" : "schema mismatch"));
-                sb.AppendLine("sensor   " + (_bodyTimer != null ? "OK" : "missing"));
+                sb.AppendLine("sensor   " + (_bodyTimer != null ? "OK" : "missing") + " last=" + (_lastBodySample == default(DateTime) ? "never" : ((int)(DateTime.Now - _lastBodySample).TotalSeconds + "s ago")));
                 sb.AppendLine("fallback " + FaceAudit.FallbackPath() + " exists=" + File.Exists(FaceAudit.FallbackPath()));
                 sb.AppendLine("state    " + (_sessionPath ?? "-"));
                 AppendChat("Ahz", sb.ToString(), "chat");
