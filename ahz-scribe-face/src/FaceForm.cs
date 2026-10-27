@@ -726,6 +726,20 @@ namespace AhzScribe.Face
             _hintPanel.Controls.Add(hint); _hintPanel.Controls.Add(hintClose);
             bottom.Controls.Add(_hintPanel);
             bottom.Controls.Add(stopBtn);
+            var pauseBtn = new Button();
+            pauseBtn.Text = "⏸";
+            pauseBtn.Dock = DockStyle.Right;
+            pauseBtn.Width = 48;
+            pauseBtn.FlatStyle = FlatStyle.Flat;
+            pauseBtn.FlatAppearance.BorderSize = 0;
+            pauseBtn.BackColor = Theme.BgTertiary;
+            pauseBtn.ForeColor = Theme.TextPrimary;
+            var pauseMenu = new ContextMenuStrip();
+            pauseMenu.Items.Add("暂停 2 小时", null, delegate { PauseProactive(DateTime.Now.AddHours(2)); });
+            pauseMenu.Items.Add("暂停到明天", null, delegate { PauseProactive(DateTime.Today.AddDays(1).AddHours(8)); });
+            pauseMenu.Items.Add("取消暂停", null, delegate { PauseProactive(DateTime.MinValue); });
+            pauseBtn.Click += delegate { pauseMenu.Show(pauseBtn, new Point(0, -pauseMenu.Height)); };
+            bottom.Controls.Add(pauseBtn);
             bottom.Controls.Add(auditBtn);
 
 
@@ -1445,6 +1459,18 @@ namespace AhzScribe.Face
                 _web.CoreWebView2.NavigateToString(sb.ToString());
             }
             catch (Exception ex) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), ex.ToString() + "\n"); } catch { } }
+        }
+        void PauseProactive(DateTime until)
+        {
+            try
+            {
+                FaceState st = FaceSession.LoadState(_sessionPath);
+                if (st == null) return;
+                st.ProactivePausedUntil = until == DateTime.MinValue ? "" : until.ToString("o");
+                FaceSession.SaveState(_sessionPath, st);
+                AppendChat("Ahz", until == DateTime.MinValue ? "已取消主动暂停" : "主动消息暂停到 " + until.ToString("MM-dd HH:mm"), "chat");
+            }
+            catch (Exception ex) { AppendChat("Ahz", "暂停失败：" + ex.Message, "error"); }
         }
         void EmergencyStop()
         {
