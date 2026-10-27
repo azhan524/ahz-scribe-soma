@@ -286,6 +286,12 @@ namespace AhzScribe.Face
             _dataDir = Path.Combine(AppContext.BaseDirectory, "_face-data");
             _sessionPath = Path.Combine(_dataDir, "sessions.jsonl");
             Directory.CreateDirectory(_dataDir);
+            string schemaError = FaceSettings.ValidateSchema(_dataDir);
+            if (schemaError.Length > 0)
+            {
+                MessageBox.Show("配置文件版本不匹配，拒绝启动：\\n" + schemaError, "Ahz Scribe", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Environment.Exit(1);
+            }
             _settings = FaceSettings.Load(_dataDir);
             if (!string.IsNullOrEmpty(_settings.BodyPipe)) Environment.SetEnvironmentVariable("AHZ_BODY_PIPE", _settings.BodyPipe);
             if (_settings.ModelNoProxy) Environment.SetEnvironmentVariable("AHZ_MODEL_NOPROXY", "1");

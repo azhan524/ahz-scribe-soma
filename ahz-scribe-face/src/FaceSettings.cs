@@ -20,6 +20,21 @@ namespace AhzScribe.Face
         public int UnansweredPauseHours { get; set; } = 24;
         public int PulseSeconds { get; set; } = 60;
 
+        public static string ValidateSchema(string dataDir)
+        {
+            try
+            {
+                string f = Path.Combine(dataDir, "settings.json");
+                if (!File.Exists(f)) return "";
+                using (var doc = JsonDocument.Parse(File.ReadAllText(f, Encoding.UTF8)))
+                {
+                    if (doc.RootElement.TryGetProperty("SchemaVersion", out var v) && v.GetInt32() != 1) return "settings_schema_mismatch:" + v.GetInt32();
+                    return "";
+                }
+            }
+            catch (Exception ex) { return "settings_schema_error:" + ex.Message; }
+        }
+
         public static FaceSettings Load(string dataDir)
         {
             try
