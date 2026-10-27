@@ -280,7 +280,7 @@ namespace AhzScribe.Face
             Height = 640;
             StartPosition = FormStartPosition.CenterScreen;
             ClientSize = new Size(1000, 520);
-            MinimumSize = new Size(1024, 680);
+            MinimumSize = new Size(900, 520);
             BackColor = Theme.BgPrimary;
             ForeColor = Theme.TextPrimary;
 
