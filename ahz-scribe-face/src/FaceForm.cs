@@ -594,7 +594,7 @@ namespace AhzScribe.Face
             settingsFlow.Controls.Add(llmGroup);
             settingsFlow.Controls.Add(bodyGroup);
             settingsFlow.Controls.Add(safetyGroup);
-            settingsFlow.Controls.Add(MakeInfoGroup("权限", "工具分级：ReadOnly / WorkspaceWrite / Full\\nFull 操作逐次审批，审计写入 ProgramData"));
+            settingsFlow.Controls.Add(MakePermissionGroup());
             settingsFlow.Controls.Add(MakeMemoryGroup());
             var pulseGroup = MakeGroup("脉冲");
             pulseGroup.Height = 80;
@@ -1274,6 +1274,37 @@ namespace AhzScribe.Face
             return g;
         }
 
+        GroupBox MakePermissionGroup()
+        {
+            var g = MakeGroup("权限");
+            g.Height = 120;
+            var flow = new FlowLayoutPanel();
+            flow.Dock = DockStyle.Fill;
+            flow.FlowDirection = FlowDirection.LeftToRight;
+            flow.WrapContents = true;
+            flow.Padding = new Padding(8, 20, 8, 8);
+            var items = new[] {
+                Tuple.Create("face 审计", Path.Combine(_dataDir, "audit.jsonl")),
+                Tuple.Create("备用通道", FaceAudit.FallbackPath()),
+                Tuple.Create("主审计", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "AhzScribe", "audit", "audit.jsonl"))
+            };
+            foreach (var item in items)
+            {
+                var b = new Button();
+                b.Text = item.Item1;
+                b.Width = 120;
+                b.Height = 28;
+                b.FlatStyle = FlatStyle.Flat;
+                b.FlatAppearance.BorderSize = 0;
+                b.BackColor = Theme.BgTertiary;
+                b.ForeColor = Theme.TextPrimary;
+                string file = item.Item2;
+                b.Click += delegate { try { if (File.Exists(file)) Process.Start(new ProcessStartInfo(file) { UseShellExecute = true }); else Process.Start("explorer.exe", "/select,\"" + file + "\""); } catch { } };
+                flow.Controls.Add(b);
+            }
+            g.Controls.Add(flow);
+            return g;
+        }
         GroupBox MakeMemoryGroup()
         {
             var g = MakeGroup("记忆");
