@@ -1692,7 +1692,14 @@ namespace AhzScribe.Face
                 finally { _pulseBody.LastUserAt = saved; }
                 return;
             }
-            if (text == "/selfcheck")
+            if (text.StartsWith("/pause", StringComparison.OrdinalIgnoreCase))
+            {
+                string arg = text.Length > 6 ? text.Substring(6).Trim() : "";
+                if (arg == "off" || arg == "取消") PauseProactive(DateTime.MinValue);
+                else if (arg == "明天" || arg == "tomorrow") PauseProactive(DateTime.Today.AddDays(1).AddHours(8));
+                else PauseProactive(DateTime.Now.AddHours(2));
+                return;
+            }            if (text == "/selfcheck")
             {
                 var sb = new StringBuilder();
                 try
