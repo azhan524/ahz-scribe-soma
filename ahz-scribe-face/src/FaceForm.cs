@@ -799,6 +799,11 @@ namespace AhzScribe.Face
             _trayPulse = new ToolStripMenuItem("最近脉冲：—"); _trayPulse.Enabled = false; trayMenu.Items.Add(_trayPulse);
             trayMenu.Items.Add(new ToolStripSeparator());
             trayMenu.Items.Add("查看审计", null, delegate { Show(); _tabs.SelectedIndex = 3; UpdateNav(); });
+            var trayPause = new ToolStripMenuItem("暂停主动");
+            trayPause.DropDownItems.Add("2 小时", null, delegate { PauseProactive(DateTime.Now.AddHours(2)); });
+            trayPause.DropDownItems.Add("直到明天", null, delegate { PauseProactive(DateTime.Today.AddDays(1).AddHours(8)); });
+            trayPause.DropDownItems.Add("取消", null, delegate { PauseProactive(DateTime.MinValue); });
+            trayMenu.Items.Add(trayPause);
             trayMenu.Items.Add("急停", null, delegate { EmergencyStop(); });
             trayMenu.Items.Add(new ToolStripSeparator());
             trayMenu.Items.Add("退出", null, delegate { if (MessageBox.Show("确定退出 AhzScribe？后台脉冲将停止", "Ahz Scribe", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes) { _reallyExit = true; _tray.Visible = false; Close(); } });
