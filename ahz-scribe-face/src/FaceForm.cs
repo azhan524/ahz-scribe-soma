@@ -783,7 +783,6 @@ namespace AhzScribe.Face
             root.Controls.Add(main, 0, 1);
             root.Controls.Add(bottom, 0, 2);
             Controls.Add(root);
-
             _clockTimer = new System.Windows.Forms.Timer();
             _clockTimer.Interval = 1000;
             _clockTimer.Tick += delegate
