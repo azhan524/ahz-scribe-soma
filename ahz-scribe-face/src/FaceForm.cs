@@ -263,7 +263,8 @@ namespace AhzScribe.Face
         readonly TextBox _memoryFilter;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe, _setBodyData;
         readonly CheckBox _setNoProxy;
-        readonly NumericUpDown _setProactiveMax, _setQuietStart, _setQuietEnd, _setPauseHours, _setPulseSeconds;
+        readonly NumericUpDown _setProactiveMax, _setQuietStart, _setQuietEnd, _setPauseHours, _setPulseSeconds, _setMemoryLimit;
+        readonly CheckBox _setReadOnly;
         readonly TabControl _tabs;
         readonly Label _status;
         readonly Panel _side;
@@ -475,6 +476,8 @@ namespace AhzScribe.Face
             _setQuietEnd = MakeNumber(0, 23, _settings.QuietEndHour);
             _setPauseHours = MakeNumber(1, 168, _settings.UnansweredPauseHours);
             _setPulseSeconds = MakeNumber(10, 600, _settings.PulseSeconds);
+            _setMemoryLimit = MakeNumber(1, 50, _settings.MemorySearchLimit);
+            _setReadOnly = new CheckBox(); _setReadOnly.Text = "只读模式：禁止 WorkspaceWrite / Full 工具"; _setReadOnly.ForeColor = Theme.TextPrimary; _setReadOnly.Checked = _settings.ReadOnlyMode;
 
             _tabs = new TabControl();
             _tabs.Dock = DockStyle.Fill;
@@ -1279,6 +1282,9 @@ namespace AhzScribe.Face
             var g = MakeGroup("权限");
             g.Height = 120;
             var flow = new FlowLayoutPanel();
+            g.Height = 170;
+            _setReadOnly.Dock = DockStyle.Top;
+            g.Controls.Add(_setReadOnly);
             flow.Dock = DockStyle.Fill;
             flow.FlowDirection = FlowDirection.LeftToRight;
             flow.WrapContents = true;
@@ -1309,6 +1315,8 @@ namespace AhzScribe.Face
         {
             var g = MakeGroup("记忆");
             g.Height = 120;
+            g.Height = 190;
+            g.Controls.Add(MakeSettingRow("检索条数", _setMemoryLimit));
             var flow = new FlowLayoutPanel();
             flow.Dock = DockStyle.Fill;
             flow.FlowDirection = FlowDirection.LeftToRight;
@@ -1775,6 +1783,8 @@ namespace AhzScribe.Face
             _settings.BodyPipe = _setPipe.Text.Trim();
             _settings.BodyData = _setBodyData.Text.Trim();
             _settings.ModelNoProxy = _setNoProxy.Checked;
+            _settings.ReadOnlyMode = _setReadOnly.Checked;
+            _settings.MemorySearchLimit = (int)_setMemoryLimit.Value;
             _settings.ProactiveDailyMax = (int)_setProactiveMax.Value;
             _settings.QuietStartHour = (int)_setQuietStart.Value;
             _settings.QuietEndHour = (int)_setQuietEnd.Value;
@@ -1943,7 +1953,7 @@ namespace AhzScribe.Face
             }
             if (text.StartsWith("/memory ", StringComparison.Ordinal))
             {
-                List<MemoryItem> hits = _memory.RetrieveAsync(text.Substring(8), 8, CancellationToken.None).GetAwaiter().GetResult();
+                List<MemoryItem> hits = _memory.RetrieveAsync(text.Substring(8), Math.Max(1, _settings.MemorySearchLimit), CancellationToken.None).GetAwaiter().GetResult();
                 AppendChat("Ahz", hits.Count == 0 ? "没有命中记忆" : string.Join("\n", hits.Select(x => "[" + x.Kind + "] " + x.Key + " = " + x.Value)), "chat");
                 return;
             }
@@ -1958,6 +1968,7 @@ namespace AhzScribe.Face
                 taskStarted = true;
                 _host.Approval = delegate(BrainToolCall call, CancellationToken ct)
                 {
+                    if (_settings.ReadOnlyMode && call.Tier != PermissionTier.ReadOnly) { AppendChat("Ahz", "只读模式已拒绝 " + call.Tool + "（" + call.Tier + "）", "error"); return Task.FromResult(false); }
                     try { if (_tray != null && !Visible) _tray.ShowBalloonTip(2000, "待确认", "请求 " + (call.Tool ?? "") + "：" + Cut(DescribeArgs(call), 40), ToolTipIcon.Warning); } catch { }
                     using (var dlg = new ApprovalForm("工具审批：" + (call.Tool ?? ""), DescribeArgs(call)))
                         return Task.FromResult(dlg.ShowDialog(this) == DialogResult.Yes);

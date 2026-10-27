@@ -14,6 +14,8 @@ namespace AhzScribe.Face
         public string BodyPipe { get; set; } = "ahz-scribe-body";
         public string BodyData { get; set; } = "";
         public bool ModelNoProxy { get; set; }
+        public bool ReadOnlyMode { get; set; }
+        public int MemorySearchLimit { get; set; } = 8;
         public int ProactiveDailyMax { get; set; } = 2;
         public int QuietStartHour { get; set; } = 23;
         public int QuietEndHour { get; set; } = 8;
