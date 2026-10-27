@@ -290,7 +290,8 @@ namespace AhzScribe.Face
             Text = "Ahz Scribe · face v0";
             Width = 920;
             Height = 640;
-            StartPosition = FormStartPosition.CenterScreen;
+            StartPosition = FormStartPosition.Manual;
+            Location = new Point(40, 40);
             ClientSize = new Size(1280, 800);
             MinimumSize = new Size(1024, 680);
             BackColor = Theme.BgPrimary;
@@ -654,6 +655,7 @@ namespace AhzScribe.Face
             tabBar.Dock = DockStyle.Top;
             tabBar.Height = 36;
             tabBar.BackColor = Theme.BgTertiary;
+            tabBar.Paint += delegate(object s, PaintEventArgs e) { using (var pen = new Pen(Theme.BorderSubtle, 1)) e.Graphics.DrawLine(pen, 0, tabBar.Height - 1, tabBar.Width, tabBar.Height - 1); };
             string[] navNames = { "对话", "脉冲", "记忆", "审计", "任务", "设置" };
             _nav = new Button[navNames.Length];
             for (int i = navNames.Length - 1; i >= 0; i--)
@@ -699,6 +701,7 @@ namespace AhzScribe.Face
             bottom.Dock = DockStyle.Bottom;
             bottom.Height = 56;
             bottom.BackColor = Theme.BgPrimary;
+            bottom.Paint += delegate(object s, PaintEventArgs e) { using (var pen = new Pen(Theme.BorderSubtle, 1)) e.Graphics.DrawLine(pen, 0, 0, bottom.Width, 0); };
 
             _input = new TextBox();
             _input.Dock = DockStyle.Fill;
@@ -789,12 +792,13 @@ namespace AhzScribe.Face
             top.Dock = DockStyle.Top;
             top.Height = 32;
             top.BackColor = Theme.BgPrimary;
+            top.Paint += delegate(object s, PaintEventArgs e) { using (var pen = new Pen(Theme.BorderSubtle, 1)) e.Graphics.DrawLine(pen, 0, top.Height - 1, top.Width, top.Height - 1); };
             _topDot = new Label(); _topDot.Text = "●"; _topDot.AutoSize = false; _topDot.Width = 22; _topDot.Dock = DockStyle.Left; _topDot.TextAlign = ContentAlignment.MiddleCenter; _topDot.ForeColor = Theme.StateInfo; _topDot.Font = new Font("Segoe UI", 10f);
             _topIdle = new Label(); _topIdle.Dock = DockStyle.Left; _topIdle.Width = 140; _topIdle.TextAlign = ContentAlignment.MiddleLeft; _topIdle.ForeColor = Theme.TextPrimary; _topIdle.Font = new Font("Microsoft YaHei UI", 9f);
             _topFore = new Label(); _topFore.Dock = DockStyle.Left; _topFore.Width = 300; _topFore.TextAlign = ContentAlignment.MiddleLeft; _topFore.ForeColor = Theme.TextPrimary; _topFore.Font = new Font("Microsoft YaHei UI", 9f);
             _topDisk = new Label(); _topDisk.Dock = DockStyle.Right; _topDisk.Width = 150; _topDisk.TextAlign = ContentAlignment.MiddleRight; _topDisk.ForeColor = Theme.TextPrimary; _topDisk.Font = new Font("Consolas", 9f);
             _topClock = new Label(); _topClock.Dock = DockStyle.Right; _topClock.Width = 90; _topClock.TextAlign = ContentAlignment.MiddleRight; _topClock.ForeColor = Theme.TextPrimary; _topClock.Font = new Font("Consolas", 9f);
-            top.Controls.Add(_topIdle); top.Controls.Add(_topFore); top.Controls.Add(_topDisk); top.Controls.Add(_topClock); top.Controls.Add(_topDot);
+            top.Controls.Add(_topFore); top.Controls.Add(_topIdle); top.Controls.Add(_topDisk); top.Controls.Add(_topClock); top.Controls.Add(_topDot);
 
             var main = new Panel();
             main.Dock = DockStyle.Fill;
@@ -1414,6 +1418,7 @@ namespace AhzScribe.Face
             l.ForeColor = Theme.TextPrimary;
             l.Font = new Font("Microsoft YaHei UI", 9f);
             l.AutoEllipsis = true;
+            l.Paint += delegate(object s, PaintEventArgs e) { using (var pen = new Pen(Theme.BorderSubtle, 1)) e.Graphics.DrawLine(pen, 0, l.Height - 1, l.Width, l.Height - 1); };
             return l;
         }
         void StartBreath()
