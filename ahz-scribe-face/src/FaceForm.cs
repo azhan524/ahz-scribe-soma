@@ -244,7 +244,7 @@ namespace AhzScribe.Face
         readonly TextBox _pulseView;
         readonly WebView2 _web;
         readonly Panel _htmlHost;
-        Panel _webErrorPanel; Label _webErrorLabel; ListBox _webSnapshot; Button _webRetry; int _webFailures; bool _webPermanent;
+        Panel _webErrorPanel; Label _webErrorLabel; ListBox _webSnapshot; Button _webRetry; int _webFailures; bool _webPermanent; DateTime _lastWebBusRefresh;
         string _auditFocus;
         readonly Label _stateFocus, _stateIntents, _stateBody, _statePulse, _stateMood;
         Panel _hintPanel;
@@ -320,6 +320,7 @@ namespace AhzScribe.Face
             _host.Trace = delegate(string line) { AppendTrace(line); };
             _uiBus.Changed += ApplyUiSnapshot;
             _uiBus.Changed += ApplyUiAux;
+            _uiBus.Changed += delegate(UiSnapshot s) { try { if (_tabs == null || _htmlHost == null || !_htmlHost.Visible) return; if ((DateTime.Now - _lastWebBusRefresh).TotalSeconds < 3) return; _lastWebBusRefresh = DateTime.Now; if (_tabs.SelectedIndex == 1) BeginInvoke(new Action(RenderPulse)); else if (_tabs.SelectedIndex == 2) BeginInvoke(new Action(RenderMemoryHtml)); else if (_tabs.SelectedIndex == 3) BeginInvoke(new Action(RenderAuditHtml)); } catch { } };
             FaceAudit.Appended += delegate { try { if (_tabs != null && _tabs.SelectedIndex == 3 && _htmlHost != null && _htmlHost.Visible) BeginInvoke(new Action(RenderAuditHtml)); } catch { } };
             _pulseBody = new FacePulseBody();
             _pulse = new PulseScheduler(_pulseBody, _memory, new FacePulseAudit(AppendTrace, Path.Combine(_dataDir, "pulse.log")),
@@ -1605,7 +1606,13 @@ namespace AhzScribe.Face
                         catch { }
                     }
                 }
-                if (_webSnapshot.Items.Count == 0) _webSnapshot.Items.Add("（没有可用的脉冲快照）");
+                _webSnapshot.Items.Add("— 记忆 —");
+                string mem = Path.Combine(_dataDir, "memory.jsonl");
+                if (File.Exists(mem)) foreach (string line in File.ReadLines(mem).Reverse().Take(20).Reverse()) { try { using (var d = System.Text.Json.JsonDocument.Parse(line)) { var r = d.RootElement; string k = r.TryGetProperty("Key", out var kk) ? kk.GetString() : ""; string v = r.TryGetProperty("Value", out var vv) ? vv.GetString() : ""; _webSnapshot.Items.Add("mem  " + k + "=" + v); } } catch { } }
+                _webSnapshot.Items.Add("— 审计 —");
+                string aud = Path.Combine(_dataDir, "audit.jsonl");
+                if (File.Exists(aud)) foreach (string line in File.ReadLines(aud).Reverse().Take(20).Reverse()) { try { using (var d = System.Text.Json.JsonDocument.Parse(line)) { var r = d.RootElement; string sp = r.TryGetProperty("span", out var ss) ? ss.GetString() : ""; string tl = r.TryGetProperty("tool", out var tt) ? tt.GetString() : ""; string de = r.TryGetProperty("decision", out var dd) ? dd.GetString() : ""; _webSnapshot.Items.Add("aud  " + sp + "/" + tl + " " + de); } } catch { } }
+                if (_webSnapshot.Items.Count == 0) _webSnapshot.Items.Add("（没有可用的快照）");
             }
             catch { }
         }
