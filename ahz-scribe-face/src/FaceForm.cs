@@ -305,6 +305,7 @@ namespace AhzScribe.Face
             _host.Trace = delegate(string line) { AppendTrace(line); };
             _uiBus.Changed += ApplyUiSnapshot;
             _uiBus.Changed += ApplyUiAux;
+            FaceAudit.Appended += delegate { try { if (_tabs != null && _tabs.SelectedIndex == 3 && _htmlHost != null && _htmlHost.Visible) BeginInvoke(new Action(RenderAuditHtml)); } catch { } };
             _pulseBody = new FacePulseBody();
             _pulse = new PulseScheduler(_pulseBody, _memory, new FacePulseAudit(AppendTrace, Path.Combine(_dataDir, "pulse.log")),
                 new FacePulseSink(OnPulse), new ModelPulseDecider(_memory, _host.Model));

@@ -8,6 +8,7 @@ namespace AhzScribe.Face
     public static class FaceAudit
     {
         static readonly object Gate = new object();
+        public static event Action Appended;
 
         public static string PathFor(string dataDir)
         {
