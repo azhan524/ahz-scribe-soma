@@ -75,3 +75,8 @@ smoke*.err
 tt.out
 tt.err
 
+
+v.out
+v.err
+v1.png
+

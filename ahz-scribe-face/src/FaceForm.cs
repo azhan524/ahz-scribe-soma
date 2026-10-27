@@ -807,6 +807,7 @@ namespace AhzScribe.Face
             right.Controls.Add(_htmlHost);
             right.Controls.Add(_tabs);
             right.Controls.Add(tabBar);
+            right.Padding = new Padding(0, 36, 0, 0);
             tabBar.BringToFront();
             _tabs.Resize += delegate { FixTabPages(); };
             main.Controls.Add(right);
@@ -907,6 +908,13 @@ namespace AhzScribe.Face
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            try
+            {
+                Rectangle wa = Screen.FromControl(this).WorkingArea;
+                int maxH = (int)(wa.Height * 96.0 / DeviceDpi) - 80;
+                if (ClientSize.Height > maxH && maxH > 400) ClientSize = new Size(ClientSize.Width, maxH);
+            }
+            catch { }
             try
             {
                 _output.Visible = true;
