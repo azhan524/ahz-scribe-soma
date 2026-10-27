@@ -14,29 +14,76 @@ namespace AhzScribe.Face
             return Path.Combine(dataDir, "audit.jsonl");
         }
 
+        public static string FallbackPath()
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Ahz", "audit_fallback", "audit_fallback.jsonl");
+        }
+
         public static string Append(string dataDir, string span, string tool, string decision, string result, string reason)
+        {
+            lock (Gate)
+            {
+                string id = "face_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fff") + "_" + Guid.NewGuid().ToString("N").Substring(0, 6);
+                var rec = new
+                {
+                    audit_id = id,
+                    ts = DateTimeOffset.UtcNow.ToString("o"),
+                    span = span,
+                    tool = tool,
+                    decision = decision,
+                    result = result,
+                    reason = reason,
+                    source = "face",
+                    fallback = false
+                };
+                try
+                {
+                    Directory.CreateDirectory(dataDir);
+                    File.AppendAllText(PathFor(dataDir), JsonSerializer.Serialize(rec) + Environment.NewLine, new UTF8Encoding(false));
+                    return id;
+                }
+                catch
+                {
+                    try
+                    {
+                        string fb = FallbackPath();
+                        Directory.CreateDirectory(Path.GetDirectoryName(fb));
+                        var frec = new
+                        {
+                            audit_id = id,
+                            ts = DateTimeOffset.UtcNow.ToString("o"),
+                            span = span,
+                            tool = tool,
+                            decision = decision,
+                            result = result,
+                            reason = reason,
+                            source = "face",
+                            fallback = true
+                        };
+                        File.AppendAllText(fb, JsonSerializer.Serialize(frec) + Environment.NewLine, new UTF8Encoding(false));
+                        return id;
+                    }
+                    catch { return ""; }
+                }
+            }
+        }
+
+        public static void MergeFallback(string dataDir)
         {
             lock (Gate)
             {
                 try
                 {
-                    string id = "face_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fff") + "_" + Guid.NewGuid().ToString("N").Substring(0, 6);
-                    Directory.CreateDirectory(dataDir);
-                    var rec = new
-                    {
-                        audit_id = id,
-                        ts = DateTimeOffset.UtcNow.ToString("o"),
-                        span = span,
-                        tool = tool,
-                        decision = decision,
-                        result = result,
-                        reason = reason,
-                        source = "face"
-                    };
-                    File.AppendAllText(PathFor(dataDir), JsonSerializer.Serialize(rec) + Environment.NewLine, new UTF8Encoding(false));
-                    return id;
+                    string fb = FallbackPath();
+                    if (!File.Exists(fb)) return;
+                    string[] lines = File.ReadAllLines(fb);
+                    if (lines.Length == 0) { File.Delete(fb); return; }
+                    using (var w = new StreamWriter(PathFor(dataDir), true, new UTF8Encoding(false)))
+                        foreach (string l in lines) w.WriteLine(l);
+                    File.Delete(fb);
                 }
-                catch { return ""; }
+                catch { }
             }
         }
     }

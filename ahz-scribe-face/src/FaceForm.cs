@@ -98,6 +98,23 @@ namespace AhzScribe.Face
                 }
                 catch { }
             }
+            string fbp = FaceAudit.FallbackPath();
+            if (File.Exists(fbp))
+            {
+                foreach (string line in File.ReadLines(fbp).Reverse().Take(100).Reverse())
+                {
+                    if (!string.IsNullOrEmpty(filter) && line.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    try
+                    {
+                        using (var doc = System.Text.Json.JsonDocument.Parse(line))
+                        {
+                            var r = doc.RootElement;
+                            rows.Add(new { ts = r.TryGetProperty("ts", out var ts) ? ts.GetString() : "", span = r.TryGetProperty("span", out var sp) ? sp.GetString() : "", tool = r.TryGetProperty("tool", out var tl) ? tl.GetString() : "", decision = r.TryGetProperty("decision", out var dc) ? dc.GetString() : "", result = r.TryGetProperty("result", out var rs) ? rs.GetString() : "", auditId = r.TryGetProperty("audit_id", out var ai) ? ai.GetString() : "", fallback = true, raw = line });
+                        }
+                    }
+                    catch { }
+                }
+            }
             return System.Text.Json.JsonSerializer.Serialize(rows);
         }
         public string QueryPulses(string filter)
@@ -247,6 +264,9 @@ namespace AhzScribe.Face
             Environment.SetEnvironmentVariable("AHZ_UNANSWERED_PAUSE_HOURS", _settings.UnansweredPauseHours.ToString());
             _host = new BrainHost(_memory, CreateModel(out _modelName));
             _host.Trace = delegate(string line) { AppendTrace(line); };
+            try { FaceAudit.MergeFallback(_dataDir); } catch { }
+            string contractError = UiContract.Validate(Path.Combine(AppContext.BaseDirectory, "ui_data_contract.yaml"));
+            if (contractError.Length > 0) AppendChat("Ahz", "UI 数据契约校验失败：" + contractError, "error");
             RunStartupCheck();
             _uiBus.Changed += ApplyUiSnapshot;
             _pulseBody = new FacePulseBody();

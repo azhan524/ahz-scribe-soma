@@ -13,6 +13,9 @@
     <ProjectReference Include="..\..\ahz-scribe-brain\src\AhzScribe.Brain.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\docs\ui_data_contract.yaml" Link="ui_data_contract.yaml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
   </ItemGroup>
 </Project>

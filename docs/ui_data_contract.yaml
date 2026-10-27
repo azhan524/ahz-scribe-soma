@@ -1,0 +1,81 @@
+version: "1.2"
+
+PulseSummary:
+  pulse_id: string
+  ts: string
+  trigger_type: enum[user_message, body_event, drive, timer, intent_due]
+  action: enum[message, tool, memory, wait, continue, none, finish]
+  summary_line: string
+  audit_id: string
+
+PulseDetail:
+  extends: PulseSummary
+  state_restore: object
+  thought: string|null
+  reason: string|null
+  confidence: float|null
+  tool_calls: list[ToolCall]
+  state_writeback: object
+  memories_injected: list[string]
+
+ToolCall:
+  tool: string
+  args_summary: string
+  result: enum[ok, error, blocked, pending]
+  duration_ms: int|null
+  audit_id: string
+
+BodyStateSummary:
+  sampled_at: string
+  online: bool
+  idle_seconds: int
+  foreground_app: string
+  disk_free_gb: float
+  network_online: bool
+  emergency_stop: bool
+
+CurrentStateSummary:
+  current_focus: string
+  mood_label: string
+  open_intents: list[IntentSummary]
+  open_intents_total: int
+  last_pulse: PulseSummary|null
+  active_task: TaskSummary|null
+  pending_confirmations: int
+
+IntentSummary:
+  intent_id: string
+  condition: string
+  status: enum[monitoring, due, done, cancelled]
+  risk: enum[low, medium, high]
+
+MemoryEntry:
+  mem_id: string
+  type: enum[semantic, episodic]
+  summary: string
+  status: enum[active, disputed, closed]
+  confidence: float|null
+  emotion: string|null
+  source_audit_id: string
+  ts: string
+
+AuditEntry:
+  audit_id: string
+  ts: string
+  span: enum[tier_decision, approval, tool_call, blocked, snapshot, rollback, pulse, resume, error, startup]
+  tool: string|null
+  decision: enum[allowed, blocked, approved, rejected, pending]|null
+  result: enum[ok, error, null]|null
+  snapshot_id: string|null
+  linked_audit_id: string|null
+  rolled_back_by: string|null
+  args_summary: string|null
+  fallback: bool
+
+ConversationMessage:
+  msg_id: string
+  role: enum[user, agent]
+  content: string
+  status: enum[sending, streaming, done, waiting_tool, error, none]
+  last_response_at: string|null
+  linked_pulse_id: string|null
