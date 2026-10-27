@@ -262,7 +262,7 @@ namespace AhzScribe.Face
         readonly BrainHost _host;
         readonly FacePulseBody _pulseBody;
         readonly BodySensor _sensor;
-        readonly System.Threading.Timer _bodyTimer;
+        System.Threading.Timer _bodyTimer;
         readonly PulseScheduler _pulse;
         readonly PulseQueue _pulseQueue;
         readonly PulseArbiter _arbiter;
@@ -783,7 +783,11 @@ namespace AhzScribe.Face
 
             _clockTimer = new System.Windows.Forms.Timer();
             _clockTimer.Interval = 1000;
-            _clockTimer.Tick += delegate { _topClock.Text = DateTime.Now.ToString("HH:mm:ss"); };
+            _clockTimer.Tick += delegate
+            {
+                _topClock.Text = DateTime.Now.ToString("HH:mm:ss");
+                if (_lastBodySample != default(DateTime) && (DateTime.Now - _lastBodySample).TotalSeconds > 90) RestartBodySensor();
+            };
             _clockTimer.Start();
             _breathTimer = new System.Windows.Forms.Timer();
             _breathTimer.Interval = 100;
@@ -1105,6 +1109,17 @@ namespace AhzScribe.Face
                     auditId = ""
                 };
                 File.AppendAllText(Path.Combine(_dataDir, "pulse.jsonl"), JsonSerializer.Serialize(rec) + Environment.NewLine, new UTF8Encoding(false));
+            }
+            catch { }
+        }
+        void RestartBodySensor()
+        {
+            try
+            {
+                if (_bodyTimer != null) _bodyTimer.Dispose();
+                _bodyTimer = new System.Threading.Timer(delegate { SampleBody(); }, null, 0, 30000);
+                _lastBodySample = DateTime.Now;
+                AppendTrace("[sensor] restarted after stale heartbeat");
             }
             catch { }
         }
