@@ -3,7 +3,7 @@
 [![repo-hygiene](https://github.com/azhan524/ahz-scribe-soma/actions/workflows/repo-hygiene.yml/badge.svg)](https://github.com/azhan524/ahz-scribe-soma/actions/workflows/repo-hygiene.yml)
 [![build](https://github.com/azhan524/ahz-scribe-soma/actions/workflows/build.yml/badge.svg)](https://github.com/azhan524/ahz-scribe-soma/actions/workflows/build.yml)
 
-> **Pre-release**：brain / body / face 已拆成可构建模块，但最终 UI 与部分工具仍在迁移中。
+> **Pre-release**：brain / body / face 已拆成可构建模块；UI v1.4 观察窗已落地，设置面板深度仍在校准。
 >
 > 这是一个能读写文件、执行 Shell、操作桌面的本地 Agent。**不要在生产机、共享账户或存有敏感数据的机器上直接授予完全访问权限。**
 
@@ -60,17 +60,55 @@ contracts              共享契约
 ahz-scribe-body        body v0（文件 / shell / 搜索 / 网络 / 桌面 / 截图）
 ahz-scribe-brain       MemoryStore / PulseScheduler / AgentRunner / ToolAgentRunner
 ahz-scribe-brain-host  独立 brain 进程
-ahz-scribe-face        console + WinForms v0（对话 / 轨迹 / 记忆）
+ahz-scribe-face        console + WinForms v1.4 观察窗（对话 / 脉冲 / 记忆 / 审计 / 任务 / 设置）
 ```
 
 已知限制：
 
-- 旧单文件版本的完整 Codex 风格 UI 尚未迁入；
+- 设置面板的权限 / 记忆 / 脉冲分组目前以只读说明卡展示；
 - body 工具表未完全对齐旧版；
-- 桌面的 DPI / 多显示器校正未完成；
+- 桌面 DPI 图标已适配，多显示器坐标校正仍未完成；
 - `rollback_self` 的审计反向链接未完整验证；
 - Linux / macOS 不支持 body 的桌面工具。
 
+## UI（v1.4 观察窗）
+
+Face 采用深色观察窗：
+
+```text
+顶栏 BodyStateBar
+左栏 StatePanel
+Tab：对话 / 脉冲 / 记忆 / 审计 / 任务 / 设置
+底栏：输入 / 暂停 / 审计 / 急停
+托盘：状态色圆点、呼吸、暂停、退出确认
+```
+
+脉冲、记忆、审计共用**单个 WebView2 实例**，通过 `chrome.webview.hostObjects.host` 查询：
+
+```text
+QueryPulses / QueryMemories / QueryAudit / QueryFallbackAudit
+```
+
+颜色只引用 `ahz-scribe-face/src/Theme.cs` 的 token；数据契约为
+`docs/ui_data_contract.yaml`（版本 1.2），启动时校验。
+
+常用命令：
+
+```text
+/selfcheck        运行时自检
+/pause            暂停主动 2 小时
+/pause 明天       暂停到明天
+/pause off        取消暂停
+/proactive-reset  重置主动限流
+/intent 30m 事情  记一个到期提醒
+```
+
+本机验证：
+
+```text
+dotnet build ahz-scribe-face/src/AhzScribe.Face.csproj
+ahz-scribe-face/src/bin/Debug/net10.0-windows/AhzScribe.Face.exe --ui
+```
 ## 构建
 
 需要 .NET 10 SDK。
