@@ -578,7 +578,8 @@ namespace AhzScribe.Face
             bodyGroup.Controls.Add(MakeSettingRow("body 数据目录", _setBodyData));
 
             var safetyGroup = MakeGroup("安全");
-            safetyGroup.Controls.Add(save);
+            safetyGroup.Height = 80;
+            safetyGroup.Controls.Add(MakeSettingRow("保存设置", save));
 
             settingsFlow.Controls.Add(llmGroup);
             settingsFlow.Controls.Add(bodyGroup);
