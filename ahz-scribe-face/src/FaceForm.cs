@@ -304,6 +304,7 @@ namespace AhzScribe.Face
             _host = new BrainHost(_memory, CreateModel(out _modelName));
             _host.Trace = delegate(string line) { AppendTrace(line); };
             _uiBus.Changed += ApplyUiSnapshot;
+            _uiBus.Changed += ApplyUiAux;
             _pulseBody = new FacePulseBody();
             _pulse = new PulseScheduler(_pulseBody, _memory, new FacePulseAudit(AppendTrace, Path.Combine(_dataDir, "pulse.log")),
                 new FacePulseSink(OnPulse), new ModelPulseDecider(_memory, _host.Model));
@@ -1527,29 +1528,37 @@ namespace AhzScribe.Face
                 FaceState st = FaceSession.LoadState(_sessionPath);
                 BodyStatus b = _sensor == null ? new BodyStatus() : _sensor.Snapshot();
                 _uiBus.Publish(new UiSnapshot { State = st, Body = b });
-                int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
-                var sb = new StringBuilder();
-                sb.AppendLine("episode     " + (st == null ? "-" : st.CurrentEpisode));
-                sb.AppendLine("messages    " + (st == null ? 0 : st.MessageCount));
-                sb.AppendLine("focus       " + (st == null ? "" : st.CurrentFocus));
-                sb.AppendLine("active_task " + (st == null ? "" : st.ActiveTask));
-                sb.AppendLine("intents     " + (st == null || st.OpenIntents == null ? 0 : st.OpenIntents.Count));
-                sb.AppendLine("memory      " + mem);
-                sb.AppendLine("pulse       " + (st == null || st.LastPulseTrigger == null ? "-" : st.LastPulseTrigger.Type + " / " + st.LastPulseTrigger.ReceivedAt));
-                sb.AppendLine();
-                sb.AppendLine(_sensor == null ? "" : _sensor.Summary(b));
-                _statusView.Text = sb.ToString();
-                if (_taskView != null)
-                {
-                    var ts = new StringBuilder();
-                    ts.AppendLine("active_task  " + (st == null ? "" : st.ActiveTask));
-                    ts.AppendLine("started_at   " + (st == null ? "" : st.ActiveTaskStartedAt));
-                    if (st != null && st.OpenIntents != null)
-                        foreach (OpenIntent it in st.OpenIntents) ts.AppendLine(it.Status + "  " + it.CreatedAt + "  " + it.Text);
-                    _taskView.Text = ts.ToString();
-                }
             }
             catch { }
+        }
+
+        void ApplyUiAux(UiSnapshot s)
+        {
+            if (s == null) return;
+            if (InvokeRequired) { BeginInvoke(new Action<UiSnapshot>(ApplyUiAux), s); return; }
+            FaceState st = s.State;
+            BodyStatus b = s.Body ?? new BodyStatus();
+            int mem = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult().Count;
+            var sb = new StringBuilder();
+            sb.AppendLine("episode     " + (st == null ? "-" : st.CurrentEpisode));
+            sb.AppendLine("messages    " + (st == null ? 0 : st.MessageCount));
+            sb.AppendLine("focus       " + (st == null ? "" : st.CurrentFocus));
+            sb.AppendLine("active_task " + (st == null ? "" : st.ActiveTask));
+            sb.AppendLine("intents     " + (st == null || st.OpenIntents == null ? 0 : st.OpenIntents.Count));
+            sb.AppendLine("memory      " + mem);
+            sb.AppendLine("pulse       " + (st == null || st.LastPulseTrigger == null ? "-" : st.LastPulseTrigger.Type + " / " + st.LastPulseTrigger.ReceivedAt));
+            sb.AppendLine();
+            sb.AppendLine(_sensor == null ? "" : _sensor.Summary(b));
+            _statusView.Text = sb.ToString();
+            if (_taskView != null)
+            {
+                var ts = new StringBuilder();
+                ts.AppendLine("active_task  " + (st == null ? "" : st.ActiveTask));
+                ts.AppendLine("started_at   " + (st == null ? "" : st.ActiveTaskStartedAt));
+                if (st != null && st.OpenIntents != null)
+                    foreach (OpenIntent it in st.OpenIntents) ts.AppendLine(it.Status + "  " + it.CreatedAt + "  " + it.Text);
+                _taskView.Text = ts.ToString();
+            }
         }
         void UpdateNav()
         {
