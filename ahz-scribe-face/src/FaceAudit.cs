@@ -9,6 +9,7 @@ namespace AhzScribe.Face
     {
         static readonly object Gate = new object();
         public static event Action Appended;
+        public static string LastError = "";
 
         public static string PathFor(string dataDir)
         {
@@ -44,7 +45,7 @@ namespace AhzScribe.Face
                     File.AppendAllText(PathFor(dataDir), JsonSerializer.Serialize(rec) + Environment.NewLine, new UTF8Encoding(false));
                     return id;
                 }
-                catch
+                catch (Exception primaryEx)
                 {
                     try
                     {
@@ -65,7 +66,7 @@ namespace AhzScribe.Face
                         File.AppendAllText(fb, JsonSerializer.Serialize(frec) + Environment.NewLine, new UTF8Encoding(false));
                         return id;
                     }
-                    catch { return ""; }
+                    catch (Exception fbEx) { LastError = primaryEx.GetType().Name + ":" + primaryEx.Message + " / " + fbEx.GetType().Name + ":" + fbEx.Message; return ""; }
                 }
             }
         }

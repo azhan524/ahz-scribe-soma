@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -234,6 +235,33 @@ internal static class Program
             f.ShowPulse();
             System.Windows.Forms.Application.Run(f);
             return 0;
+        }
+        if (args != null && Array.IndexOf(args, "--audit-fallback-test") >= 0)
+        {
+            string dir = Path.Combine(AppContext.BaseDirectory, "_face-data");
+            Directory.CreateDirectory(dir);
+            string audit = Path.Combine(dir, "audit.jsonl");
+            string backup = null;
+            try
+            {
+                if (File.Exists(audit)) backup = File.ReadAllText(audit);
+                File.WriteAllText(audit, backup ?? "");
+                File.SetAttributes(audit, FileAttributes.ReadOnly);
+                string id = FaceAudit.Append(dir, "test", "fallback", "forced", "audit read-only", "audit-fallback-test");
+                string fb = FaceAudit.FallbackPath();
+                bool fbExists = File.Exists(fb);
+                Console.WriteLine("audit_id=" + id);
+                Console.WriteLine("error=" + FaceAudit.LastError);
+                Console.WriteLine("fallback_path=" + fb);
+                Console.WriteLine("fallback_exists=" + fbExists);
+                if (fbExists) Console.WriteLine("fallback_last=" + File.ReadLines(fb).Last());
+                return fbExists && !string.IsNullOrEmpty(id) ? 0 : 1;
+            }
+            finally
+            {
+                try { File.SetAttributes(audit, FileAttributes.Normal); } catch { }
+                try { if (backup != null) File.WriteAllText(audit, backup); } catch { }
+            }
         }
         if (args != null && Array.IndexOf(args, "--ui") >= 0)
         {
