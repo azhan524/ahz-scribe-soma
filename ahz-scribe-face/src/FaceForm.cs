@@ -961,14 +961,6 @@ namespace AhzScribe.Face
                 if (ClientSize.Height > maxH && maxH > 400) ClientSize = new Size(ClientSize.Width, maxH);
             }
             catch { }
-            try
-            {
-                _output.Visible = true;
-                _output.BringToFront();
-                string dbg = Path.Combine(Path.GetDirectoryName(_sessionPath), "ui-debug.log");
-                File.AppendAllText(dbg, "onshown vis=" + _output.Visible + " size=" + _output.Width + "x" + _output.Height + " parent=" + (_output.Parent == null ? "null" : _output.Parent.GetType().Name) + " textlen=" + _output.TextLength + " handle=" + _output.IsHandleCreated + " fore=" + _output.ForeColor.ToString() + " back=" + _output.BackColor.ToString() + "\n", new UTF8Encoding(false));
-            }
-            catch { }
         }
         IBrainModel CreateModel(out string name)
         {
@@ -1823,6 +1815,18 @@ namespace AhzScribe.Face
                 var ts = new StringBuilder();
                 ts.AppendLine("active_task  " + (st == null ? "" : st.ActiveTask));
                 ts.AppendLine("started_at   " + (st == null ? "" : st.ActiveTaskStartedAt));
+                bool hasTask = st != null && !string.IsNullOrEmpty(st.ActiveTask);
+                ts.AppendLine();
+                ts.AppendLine("任务步骤");
+                if (hasTask)
+                {
+                    ts.AppendLine("  [完成] 1. 接收任务");
+                    ts.AppendLine("  [进行] 2. 执行中");
+                    ts.AppendLine("  [等待] 3. 写回结果");
+                }
+                else ts.AppendLine("  （当前没有进行中的任务）");
+                ts.AppendLine();
+                ts.AppendLine("未完成意图");
                 if (st != null && st.OpenIntents != null)
                     foreach (OpenIntent it in st.OpenIntents) ts.AppendLine(it.Status + "  " + it.CreatedAt + "  " + it.Text);
                 _taskView.Text = ts.ToString();
