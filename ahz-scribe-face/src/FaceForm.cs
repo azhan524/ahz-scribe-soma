@@ -1165,6 +1165,13 @@ namespace AhzScribe.Face
             }
             catch { }
         }
+        public string SensorStaleTest()
+        {
+            _lastBodySample = DateTime.Now.AddSeconds(-100);
+            RestartBodySensor();
+            bool ok = (DateTime.Now - _lastBodySample).TotalSeconds < 5;
+            return "sensor_stale_restart=" + ok + " last=" + ((int)(DateTime.Now - _lastBodySample).TotalSeconds) + "s";
+        }
         void RestartBodySensor()
         {
             try

@@ -226,6 +226,27 @@ internal static class Program
             }
             finally { try { Directory.Delete(dir, true); } catch { } }
         }
+        if (args != null && Array.IndexOf(args, "--schema-test") >= 0)
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "ahz-schema-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            File.WriteAllText(Path.Combine(dir, "settings.json"), "{\"SchemaVersion\":2}");
+            string err = AhzScribe.Face.FaceSettings.ValidateSchema(dir);
+            Console.WriteLine("schema_error=" + err);
+            try { Directory.Delete(dir, true); } catch { }
+            return err.StartsWith("settings_schema_mismatch") ? 0 : 1;
+        }
+        if (args != null && Array.IndexOf(args, "--sensor-stale-test") >= 0)
+        {
+            System.Windows.Forms.Application.EnableVisualStyles();
+            System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
+            var f = new AhzScribe.Face.FaceForm();
+            string result = f.SensorStaleTest();
+            Console.WriteLine(result);
+            bool ok = result.Contains("True");
+            System.Windows.Forms.Application.Exit();
+            return ok ? 0 : 1;
+        }
         if (args != null && Array.IndexOf(args, "--ui-pulse") >= 0)
         {
             System.Windows.Forms.Application.EnableVisualStyles();
