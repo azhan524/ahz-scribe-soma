@@ -749,7 +749,7 @@ namespace AhzScribe.Face
             stopBtn.Width = 84;
             stopBtn.FlatStyle = FlatStyle.Flat;
             stopBtn.FlatAppearance.BorderSize = 0;
-            stopBtn.BackColor = Theme.DangerButtonBg;
+            stopBtn.BackColor = Theme.StateDanger;
             stopBtn.ForeColor = Theme.DangerButtonFg;
             stopBtn.Click += delegate { EmergencyStop(); };
             var auditBtn = new Button();
@@ -1664,7 +1664,7 @@ namespace AhzScribe.Face
                 File.WriteAllText(Path.Combine(dir, "EMERGENCY_STOP"), DateTime.Now.ToString("o"), new UTF8Encoding(false));
                 AppendChat("Ahz", "已急停，所有脉冲停止", "error");
                 try { if (_tray != null) _tray.ShowBalloonTip(2000, "Ahz Scribe", "已急停，所有脉冲停止", ToolTipIcon.Warning); } catch { }
-                if (_topDot != null) _topDot.ForeColor = Theme.DangerButtonBg;
+                if (_topDot != null) _topDot.ForeColor = Theme.StateDanger;
             }
             catch (Exception ex) { AppendChat("Ahz", "急停失败：" + ex.Message, "error"); }
         }
