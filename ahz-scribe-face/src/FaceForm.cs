@@ -596,6 +596,7 @@ namespace AhzScribe.Face
             _tabs.TabPages.Add(auditPage);
             _tabs.TabPages.Add(taskPage);
             _tabs.TabPages.Add(settingsPage);
+            FixTabPages();
             _side = new Panel();
             _side.Dock = DockStyle.Left;
             _side.Width = 260;
@@ -661,7 +662,7 @@ namespace AhzScribe.Face
             _side.Controls.Add(search);
             _side.Controls.Add(statePanel);
             _side.Controls.Add(brand);
-            _tabs.SelectedIndexChanged += delegate { UpdateNav(); ShowHtmlTab(); };
+            _tabs.SelectedIndexChanged += delegate { UpdateNav(); FixTabPages(); ShowHtmlTab(); };
             UpdateNav();
             var bottom = new Panel();
             bottom.Dock = DockStyle.Bottom;
@@ -770,6 +771,7 @@ namespace AhzScribe.Face
             content.Dock = DockStyle.Fill;
             content.Controls.Add(_htmlHost);
             content.Controls.Add(_tabs);
+            _tabs.Resize += delegate { FixTabPages(); };
             main.Controls.Add(content);
             main.Controls.Add(_side);
             var root = new TableLayoutPanel();
@@ -862,6 +864,7 @@ namespace AhzScribe.Face
             FaceState state = FaceSession.LoadState(_sessionPath);
             if (state != null) UpdateTitle(state.CurrentFocus);
             UpdateStatus();
+            RunStartupChecks();
         }
 
         protected override void OnShown(EventArgs e)
@@ -1367,10 +1370,17 @@ namespace AhzScribe.Face
                 _stateMood.Text = "情绪\n" + mood;
             }
         }
+        void FixTabPages()
+        {
+            if (_tabs == null) return;
+            Rectangle r = _tabs.DisplayRectangle;
+            foreach (TabPage p in _tabs.TabPages) p.Bounds = r;
+        }
         void ShowHtmlTab()
         {
             if (_tabs.SelectedIndex >= 1 && _tabs.SelectedIndex <= 3)
             {
+                _htmlHost.Bounds = _htmlHost.Parent.ClientRectangle;
                 _htmlHost.Visible = true;
                 _htmlHost.BringToFront();
                 if (_tabs.SelectedIndex == 1) RenderPulse();
