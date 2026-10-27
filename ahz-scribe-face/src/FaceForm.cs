@@ -279,8 +279,8 @@ namespace AhzScribe.Face
             Width = 920;
             Height = 640;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(1000, 470);
-            MinimumSize = new Size(900, 520);
+            ClientSize = new Size(1280, 800);
+            MinimumSize = new Size(1024, 680);
             BackColor = Theme.BgPrimary;
             ForeColor = Theme.TextPrimary;
 
@@ -603,8 +603,8 @@ namespace AhzScribe.Face
             _side.AutoScroll = true;
             _side.BackColor = Theme.BgBase;
             var statePanel = new Panel();
-            statePanel.Dock = DockStyle.Bottom;
-            statePanel.Height = 220;
+            statePanel.Dock = DockStyle.Top;
+            statePanel.Height = 240;
             statePanel.BackColor = Theme.BgSecondary;
             statePanel.Padding = new Padding(10);
             _stateFocus = MakeStateLabel();
@@ -672,7 +672,7 @@ namespace AhzScribe.Face
             UpdateNav();
             var bottom = new Panel();
             bottom.Dock = DockStyle.Bottom;
-            bottom.Height = 120;
+            bottom.Height = 56;
             bottom.BackColor = Theme.BgPrimary;
 
             _input = new TextBox();
@@ -702,7 +702,7 @@ namespace AhzScribe.Face
 
             _status = new Label();
             _status.Dock = DockStyle.Top;
-            _status.Height = 22;
+            _status.Height = 18;
             _status.BackColor = Theme.BgPrimary;
             _status.ForeColor = Theme.TextSecondary;
             _status.Font = new Font("Consolas", 8.5f);
@@ -711,7 +711,7 @@ namespace AhzScribe.Face
             bottom.Controls.Add(_status);
             var pad = new Panel();
             pad.Dock = DockStyle.Fill;
-            pad.Padding = new Padding(10, 32, 8, 8);
+            pad.Padding = new Padding(10, 20, 8, 4);
             pad.Controls.Add(_input);
             bottom.Controls.Add(pad);
             bottom.Controls.Add(_send);
@@ -788,7 +788,7 @@ namespace AhzScribe.Face
             root.RowCount = 3;
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 120));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
             root.Controls.Add(top, 0, 0);
             root.Controls.Add(main, 0, 1);
             root.Controls.Add(bottom, 0, 2);
