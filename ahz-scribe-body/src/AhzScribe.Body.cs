@@ -418,7 +418,7 @@ namespace AhzScribe.Body
         }
         string DesktopScreenshot()
         {
-            Rectangle b = Screen.PrimaryScreen.Bounds;
+            Rectangle b = SystemInformation.VirtualScreen;
             string dir = Path.Combine(_root, "_screenshots");
             Directory.CreateDirectory(dir);
             string name = "screen_" + DateTime.Now.ToString("yyyyMMdd_HHmmss_fff") + ".png";
