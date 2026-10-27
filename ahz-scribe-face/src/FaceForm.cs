@@ -639,6 +639,7 @@ namespace AhzScribe.Face
                 b.TextAlign = ContentAlignment.MiddleLeft;
                 b.Padding = new Padding(18, 0, 0, 0);
                 b.Click += delegate { _tabs.SelectedIndex = index; UpdateNav(); };
+                b.Paint += delegate(object s, PaintEventArgs e) { if (_tabs != null && index == _tabs.SelectedIndex) { using (var pen = new Pen(Theme.StateInfo, 2)) e.Graphics.DrawLine(pen, 0, b.Height - 2, b.Width, b.Height - 2); } };
                 _side.Controls.Add(b);
                 _nav[i] = b;
             }
