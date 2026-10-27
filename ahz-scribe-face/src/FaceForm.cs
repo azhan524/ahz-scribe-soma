@@ -291,7 +291,7 @@ namespace AhzScribe.Face
             Width = 920;
             Height = 640;
             StartPosition = FormStartPosition.Manual;
-            Location = new Point(40, 40);
+            Location = new Point(40, 10);
             ClientSize = new Size(1280, 800);
             MinimumSize = new Size(1024, 680);
             BackColor = Theme.BgPrimary;
@@ -911,7 +911,7 @@ namespace AhzScribe.Face
             try
             {
                 Rectangle wa = Screen.FromControl(this).WorkingArea;
-                int maxH = (int)(wa.Height * 96.0 / DeviceDpi) - 80;
+                int maxH = (int)(wa.Height * 96.0 / DeviceDpi) - 140;
                 if (ClientSize.Height > maxH && maxH > 400) ClientSize = new Size(ClientSize.Width, maxH);
             }
             catch { }
