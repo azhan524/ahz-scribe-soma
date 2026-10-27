@@ -1725,6 +1725,7 @@ namespace AhzScribe.Face
                 sb.AppendLine("webview  " + (_web != null && _web.CoreWebView2 != null ? "OK" : "未初始化"));
                 sb.AppendLine("config   " + (_settings != null && _settings.SchemaVersion == 1 ? "OK" : "schema mismatch"));
                 sb.AppendLine("sensor   " + (_bodyTimer != null ? "OK" : "missing"));
+                sb.AppendLine("fallback " + FaceAudit.FallbackPath() + " exists=" + File.Exists(FaceAudit.FallbackPath()));
                 sb.AppendLine("state    " + (_sessionPath ?? "-"));
                 AppendChat("Ahz", sb.ToString(), "chat");
                 return;
