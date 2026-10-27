@@ -1142,14 +1142,14 @@ namespace AhzScribe.Face
                     ["trigger_type"] = type,
                     ["action"] = action,
                     ["summary_line"] = summary.Length == 0 ? action : summary,
-                    ["audit_id"] = "",
+                    ["audit_id"] = d.AuditId ?? "",
                     ["state_restore"] = restore,
                     ["thought"] = d.Thought ?? "",
                     ["reason"] = d.Reason ?? "",
-                    ["confidence"] = null,
+                    ["confidence"] = d.Confidence,
                     ["tool_calls"] = new List<object>(),
                     ["state_writeback"] = writeback,
-                    ["memories_injected"] = new List<string>()
+                    ["memories_injected"] = d.MemoriesInjected ?? new List<string>()
                 };                File.AppendAllText(Path.Combine(_dataDir, "pulse.jsonl"), JsonSerializer.Serialize(rec) + Environment.NewLine, new UTF8Encoding(false));
             }
             catch { }

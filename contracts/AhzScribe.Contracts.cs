@@ -109,6 +109,9 @@ namespace AhzScribe.Contracts
         public string Text { get; set; }
         public string Reason { get; set; }
         public string Thought { get; set; }
+        public double? Confidence { get; set; }
+        public string AuditId { get; set; }
+        public List<string> MemoriesInjected { get; set; }
     }
 
     public interface IBrainModel

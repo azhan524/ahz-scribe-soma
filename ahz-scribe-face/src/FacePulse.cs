@@ -98,7 +98,7 @@ namespace AhzScribe.Face
                 var sb = new System.Text.StringBuilder();
                 foreach (MemoryItem m in all.Skip(Math.Max(0, all.Count - 12)))
                     sb.AppendLine("- " + (m.Kind ?? "") + " / " + (m.Key ?? "") + " = " + (m.Value ?? ""));
-                string system = "你是 Ahz Scribe 的脉冲决策器。行动空间只有 none 和 message。没有明确、必要、不打扰的理由就返回 none；不要寒暄，不要为了说话而说话。如果最近记忆里有明确的待办、未完成事项或用户要求提醒，且现在适合，可以 message。只输出 JSON：{\"action\":\"none|message\",\"text\":\"\",\"reason\":\"\",\"thought\":\"\"}。thought 用一句第一人称内心判断，不要客套。";
+                string system = "你是 Ahz Scribe 的脉冲决策器。行动空间只有 none 和 message。没有明确、必要、不打扰的理由就返回 none；不要寒暄，不要为了说话而说话。如果最近记忆里有明确的待办、未完成事项或用户要求提醒，且现在适合，可以 message。只输出 JSON：{\"action\":\"none|message\",\"text\":\"\",\"reason\":\"\",\"thought\":\"\",\"confidence\":0.0}。thought 用一句第一人称内心判断，不要客套。";
                 string user = "当前空闲秒数：" + (body == null ? 0 : body.IdleSeconds) + "\n最近记忆：\n" + sb.ToString();
                 string raw = await _model.CompleteAsync(system, user, ct).ConfigureAwait(false);
                 return ParseDecision(raw);
@@ -125,12 +125,14 @@ namespace AhzScribe.Face
                         string text = root.TryGetProperty("text", out JsonElement tr) ? (tr.GetString() ?? "") : "";
                         string reason = root.TryGetProperty("reason", out JsonElement rr) ? (rr.GetString() ?? "") : "";
                         string thought = root.TryGetProperty("thought", out JsonElement th) ? (th.GetString() ?? "") : "";
+                        double? confidence = null;
+                        if (root.TryGetProperty("confidence", out JsonElement cf) && cf.ValueKind == JsonValueKind.Number) confidence = cf.GetDouble();
                         if (string.Equals(action, "message", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(text))
                         {
                             if (text.Length > 300) text = text.Substring(0, 300);
-                            return new PulseDecision { Action = "message", Text = text, Reason = "model:" + reason, Thought = thought };
+                            return new PulseDecision { Action = "message", Text = text, Reason = "model:" + reason, Thought = thought, Confidence = confidence };
                         }
-                        return new PulseDecision { Action = "none", Reason = reason.Length == 0 ? "model_none" : reason, Thought = thought };
+                        return new PulseDecision { Action = "none", Reason = reason.Length == 0 ? "model_none" : reason, Thought = thought, Confidence = confidence };
                     }
                 }
                 catch { }
