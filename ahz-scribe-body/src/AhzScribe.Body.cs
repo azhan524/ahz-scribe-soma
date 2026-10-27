@@ -283,6 +283,7 @@ namespace AhzScribe.Body
                 throw new UnauthorizedAccessException("desktop_click requires Full tier and Approved=true");
             int x = Convert.ToInt32(r.Args.ContainsKey("x") ? r.Args["x"] : 0);
             int y = Convert.ToInt32(r.Args.ContainsKey("y") ? r.Args["y"] : 0);
+            if (r.Args.ContainsKey("relative") && Convert.ToBoolean(r.Args["relative"])) { x += SystemInformation.VirtualScreen.Left; y += SystemInformation.VirtualScreen.Top; }
             SetCursorPos(x, y);
             mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
             mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
@@ -429,7 +430,7 @@ namespace AhzScribe.Body
                     g.CopyFromScreen(b.Left, b.Top, 0, 0, b.Size, CopyPixelOperation.SourceCopy);
                 bmp.Save(path, ImageFormat.Png);
             }
-            return "_screenshots/" + name;
+            return "_screenshots/" + name + " | origin=" + b.Left + "," + b.Top + " size=" + b.Width + "x" + b.Height;
         }
         [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hWnd);
         [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
@@ -501,6 +502,7 @@ namespace AhzScribe.Body
             if (!GetWindowRect(h, out rect)) return "GetWindowRect failed";
             int x = Convert.ToInt32(r.Args.ContainsKey("x") ? r.Args["x"] : 0);
             int y = Convert.ToInt32(r.Args.ContainsKey("y") ? r.Args["y"] : 0);
+            if (r.Args.ContainsKey("relative") && Convert.ToBoolean(r.Args["relative"])) { x += SystemInformation.VirtualScreen.Left; y += SystemInformation.VirtualScreen.Top; }
             SetCursorPos(rect.Left + x, rect.Top + y);
             mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
             mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
