@@ -787,7 +787,7 @@ namespace AhzScribe.Face
             trayMenu.Items.Add("查看审计", null, delegate { Show(); _tabs.SelectedIndex = 3; UpdateNav(); });
             trayMenu.Items.Add("急停", null, delegate { EmergencyStop(); });
             trayMenu.Items.Add(new ToolStripSeparator());
-            trayMenu.Items.Add("退出", null, delegate { _reallyExit = true; _tray.Visible = false; Close(); });
+            trayMenu.Items.Add("退出", null, delegate { if (MessageBox.Show("确定退出 AhzScribe？后台脉冲将停止", "Ahz Scribe", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes) { _reallyExit = true; _tray.Visible = false; Close(); } });
             _tray.ContextMenuStrip = trayMenu;
             _tray.DoubleClick += delegate { Show(); WindowState = FormWindowState.Normal; Activate(); };
             FormClosing += delegate(object s, FormClosingEventArgs e)
