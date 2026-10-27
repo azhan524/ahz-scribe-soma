@@ -595,7 +595,7 @@ namespace AhzScribe.Face
             settingsFlow.Controls.Add(bodyGroup);
             settingsFlow.Controls.Add(safetyGroup);
             settingsFlow.Controls.Add(MakeInfoGroup("权限", "工具分级：ReadOnly / WorkspaceWrite / Full\\nFull 操作逐次审批，审计写入 ProgramData"));
-            settingsFlow.Controls.Add(MakeInfoGroup("记忆", "语义 / 情节 / disputed 三类记忆\\n24 小时去重，冲突标记 disputed"));
+            settingsFlow.Controls.Add(MakeMemoryGroup());
             var pulseGroup = MakeGroup("脉冲");
             pulseGroup.Height = 80;
             pulseGroup.Controls.Add(MakeSettingRow("周期（秒）", _setPulseSeconds));
@@ -1274,6 +1274,32 @@ namespace AhzScribe.Face
             return g;
         }
 
+        GroupBox MakeMemoryGroup()
+        {
+            var g = MakeGroup("记忆");
+            g.Height = 120;
+            var flow = new FlowLayoutPanel();
+            flow.Dock = DockStyle.Fill;
+            flow.FlowDirection = FlowDirection.LeftToRight;
+            flow.WrapContents = true;
+            flow.Padding = new Padding(8, 20, 8, 8);
+            foreach (string name in new[] { "memory.jsonl", "semantic.jsonl", "episodic.jsonl", "disputed.jsonl" })
+            {
+                var b = new Button();
+                b.Text = name;
+                b.Width = 120;
+                b.Height = 28;
+                b.FlatStyle = FlatStyle.Flat;
+                b.FlatAppearance.BorderSize = 0;
+                b.BackColor = Theme.BgTertiary;
+                b.ForeColor = Theme.TextPrimary;
+                string file = Path.Combine(_dataDir, name);
+                b.Click += delegate { try { if (File.Exists(file)) Process.Start(new ProcessStartInfo(file) { UseShellExecute = true }); } catch { } };
+                flow.Controls.Add(b);
+            }
+            g.Controls.Add(flow);
+            return g;
+        }
         GroupBox MakePersonaGroup()
         {
             var g = MakeGroup("人格");
