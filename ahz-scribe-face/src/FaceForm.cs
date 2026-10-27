@@ -975,7 +975,6 @@ namespace AhzScribe.Face
         void Append(string text)
         {
             if (InvokeRequired) { BeginInvoke(new Action<string>(Append), text); return; }
-            try { string dbg = Path.Combine(Path.GetDirectoryName(_sessionPath), "ui-debug.log"); File.AppendAllText(dbg, text + " | len=" + _output.TextLength + " vis=" + _output.Visible + " size=" + _output.Width + "x" + _output.Height + "\n", new UTF8Encoding(false)); } catch { }
             _output.AppendText(text + Environment.NewLine + Environment.NewLine);
             _output.SelectionStart = _output.TextLength;
             _output.ScrollToCaret();
@@ -1842,6 +1841,19 @@ namespace AhzScribe.Face
                 _nav[i].ForeColor = i == _tabs.SelectedIndex ? Theme.TextPrimary : Theme.TextSecondary;
             }
         }
+        void ExtractTurnMemory(string user, string answer)
+        {
+            try
+            {
+                string source = FaceAudit.Append(_dataDir, "memory", "extract", "allowed", "turn", "turn extraction");
+                var ex = new MemoryExtractor(_host.Model);
+                List<MemoryItem> items = ex.ExtractAsync(user + "\nAhz: " + answer, source, CancellationToken.None).GetAwaiter().GetResult();
+                foreach (MemoryItem m in items) _memory.RememberAsync(m, CancellationToken.None).GetAwaiter().GetResult();
+                if (items.Count > 0) { try { BeginInvoke(new Action(delegate { RenderMemory(); RefreshMemoryHtml(); })); } catch { } }
+            }
+            catch { }
+        }
+
         void ExtractCurrent()
         {
             try
@@ -2043,7 +2055,7 @@ namespace AhzScribe.Face
                 AppendChat("Ahz", "主动消息限流已重置", "chat");
                 return;
             }
-            if (text == "/intent-clear")
+            if (text == "/intent-clear" || text == "/clear-intents")
             {
                 FaceState st = FaceSession.LoadState(_sessionPath);
                 if (st != null && st.OpenIntents != null)
@@ -2118,6 +2130,7 @@ namespace AhzScribe.Face
                     ? await _host.RunToolAsync(text.Substring(6), CancellationToken.None)
                     : await _host.AskAsync(text, CancellationToken.None);
                 AppendChat("Ahz", answer ?? "", "chat");
+                if (!string.IsNullOrWhiteSpace(answer)) Task.Run(delegate { ExtractTurnMemory(text, answer); });
             UpdateStatus();
             }
             catch (Exception ex) { Append("错误：" + ex.Message); if (_lastResponse != null) { _lastResponse.Text = "最后响应：错误 " + DateTime.Now.ToString("HH:mm:ss"); _lastResponse.ForeColor = Theme.StateDanger; } }
