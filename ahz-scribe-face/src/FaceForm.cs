@@ -279,7 +279,7 @@ namespace AhzScribe.Face
             Width = 920;
             Height = 640;
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(1000, 520);
+            ClientSize = new Size(1000, 470);
             MinimumSize = new Size(900, 520);
             BackColor = Theme.BgPrimary;
             ForeColor = Theme.TextPrimary;
@@ -1192,7 +1192,7 @@ namespace AhzScribe.Face
             string result = "ok";
             try
             {
-                string auditDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "AhzScribe", "audit");
+                string auditDir = _dataDir;
                 Directory.CreateDirectory(auditDir);
                 string probe = Path.Combine(auditDir, ".write_probe_" + Guid.NewGuid().ToString("N"));
                 File.WriteAllText(probe, "1");
