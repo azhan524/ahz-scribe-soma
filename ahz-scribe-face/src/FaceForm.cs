@@ -296,10 +296,6 @@ namespace AhzScribe.Face
             Environment.SetEnvironmentVariable("AHZ_UNANSWERED_PAUSE_HOURS", _settings.UnansweredPauseHours.ToString());
             _host = new BrainHost(_memory, CreateModel(out _modelName));
             _host.Trace = delegate(string line) { AppendTrace(line); };
-            try { FaceAudit.MergeFallback(_dataDir); } catch { }
-            string contractError = UiContract.Validate(Path.Combine(AppContext.BaseDirectory, "ui_data_contract.yaml"));
-            if (contractError.Length > 0) AppendChat("Ahz", "UI 数据契约校验失败：" + contractError, "error");
-            RunStartupCheck();
             _uiBus.Changed += ApplyUiSnapshot;
             _pulseBody = new FacePulseBody();
             _pulse = new PulseScheduler(_pulseBody, _memory, new FacePulseAudit(AppendTrace, Path.Combine(_dataDir, "pulse.log")),
@@ -1154,6 +1150,13 @@ namespace AhzScribe.Face
                 _auditView.Text = sb.Length == 0 ? "没有审计记录" : sb.ToString();
             }
             catch (Exception ex) { _auditView.Text = ex.Message; }
+        }
+        void RunStartupChecks()
+        {
+            try { FaceAudit.MergeFallback(_dataDir); } catch { }
+            string contractError = UiContract.Validate(Path.Combine(AppContext.BaseDirectory, "ui_data_contract.yaml"));
+            if (contractError.Length > 0) AppendChat("Ahz", "UI 数据契约校验失败：" + contractError, "error");
+            RunStartupCheck();
         }
         void RunStartupCheck()
         {

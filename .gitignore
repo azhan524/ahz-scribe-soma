@@ -67,3 +67,7 @@ ph.err
 p2.out
 p2.err
 
+
+smoke*.out
+smoke*.err
+
