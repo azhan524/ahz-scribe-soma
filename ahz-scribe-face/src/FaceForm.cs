@@ -1841,6 +1841,88 @@ namespace AhzScribe.Face
                 _nav[i].ForeColor = i == _tabs.SelectedIndex ? Theme.TextPrimary : Theme.TextSecondary;
             }
         }
+        int ClearOpenIntents()
+        {
+            FaceState st = FaceSession.LoadState(_sessionPath);
+            int n = 0;
+            if (st != null && st.OpenIntents != null)
+            {
+                foreach (OpenIntent it in st.OpenIntents)
+                {
+                    if (it.Status == "open" || it.Status == "monitoring") { it.Status = "cancelled"; n++; }
+                }
+                FaceSession.SaveState(_sessionPath, st);
+            }
+            UpdateStatus();
+            return n;
+        }
+
+        void RememberAuto(string kind, string key, string value, string reason)
+        {
+            string audit = FaceAudit.Append(_dataDir, "memory", "remember", "allowed", key + "=" + value, reason);
+            _memory.RememberAsync(new MemoryItem { Kind = kind, Key = key, Value = value, Summary = key + "=" + value, SourceAuditId = audit }, CancellationToken.None).GetAwaiter().GetResult();
+            RenderMemory();
+            RefreshMemoryHtml();
+        }
+
+        bool TryNaturalIntent(string text)
+        {
+            string t = text.Trim();
+            bool clearWord = t.IndexOf("清空", StringComparison.Ordinal) >= 0 || t.IndexOf("清除", StringComparison.Ordinal) >= 0 || t.IndexOf("取消", StringComparison.Ordinal) >= 0;
+            bool taskWord = t.IndexOf("任务", StringComparison.Ordinal) >= 0 || t.IndexOf("意图", StringComparison.Ordinal) >= 0;
+            if (clearWord && taskWord)
+            {
+                int n = ClearOpenIntents();
+                AppendChat("Ahz", n == 0 ? "当前没有待取消的任务或意图。" : "已取消 " + n + " 条任务/意图。", "chat");
+                return true;
+            }
+            var m = System.Text.RegularExpressions.Regex.Match(t, @"简称\s*([A-Za-z0-9_\-]+)");
+            if (m.Success)
+            {
+                string name = m.Groups[1].Value;
+                RememberAuto("identity", "nickname", name, "natural language: 简称");
+                AppendChat("Ahz", "已记住：简称 " + name + "。", "chat");
+                return true;
+            }
+            if (t.StartsWith("以后叫我", StringComparison.Ordinal) || t.StartsWith("叫我", StringComparison.Ordinal))
+            {
+                string name = t.Replace("以后叫我", "").Replace("叫我", "").Trim();
+                if (name.Length > 0)
+                {
+                    RememberAuto("identity", "nickname", name, "natural language: 叫我");
+                    AppendChat("Ahz", "已记住：以后叫你 " + name + "。", "chat");
+                    return true;
+                }
+            }
+            if (t.StartsWith("我叫", StringComparison.Ordinal))
+            {
+                string name = t.Substring(2).Trim();
+                if (name.Length > 0 && name != "谁")
+                {
+                    RememberAuto("identity", "user_name", name, "natural language: 我叫");
+                    AppendChat("Ahz", "已记住：你叫 " + name + "。", "chat");
+                    return true;
+                }
+            }
+            if (t.StartsWith("记住", StringComparison.Ordinal) || t.StartsWith("请记住", StringComparison.Ordinal))
+            {
+                string body = t.StartsWith("请记住", StringComparison.Ordinal) ? t.Substring(3).Trim() : t.Substring(2).Trim();
+                int eq = body.IndexOf('=');
+                string key; string value;
+                if (eq > 0) { key = body.Substring(0, eq).Trim(); value = body.Substring(eq + 1).Trim(); }
+                else
+                {
+                    string[] parts = body.Split(new[] { '是', '：', ':' }, 2, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length < 2) return false;
+                    key = parts[0].Trim(); value = parts[1].Trim();
+                }
+                if (key.Length == 0 || value.Length == 0) return false;
+                RememberAuto("semantic", key, value, "natural language: 记住");
+                AppendChat("Ahz", "已记住：" + key + " = " + value, "chat");
+                return true;
+            }
+            return false;
+        }
         void ExtractTurnMemory(string user, string answer)
         {
             try
@@ -2110,6 +2192,7 @@ namespace AhzScribe.Face
                 AppendChat("Ahz", hits.Count == 0 ? "没有命中记忆" : string.Join("\n", hits.Select(x => "[" + x.Kind + "] " + x.Key + " = " + x.Value)), "chat");
                 return;
             }
+            if (!text.StartsWith("/", StringComparison.Ordinal) && TryNaturalIntent(text)) return;
             if (_busySend) { _pendingSends.Enqueue(text); _status.Text = _pendingSends.Count + " 条待发送"; return; }
             _busySend = true;
             bool taskStarted = false;
