@@ -1633,6 +1633,10 @@ namespace AhzScribe.Face
             return sb.ToString();
         }
 
+        void RefreshMemoryHtml()
+        {
+            try { if (_tabs != null && _tabs.SelectedIndex == 2 && _htmlHost != null && _htmlHost.Visible) BeginInvoke(new Action(RenderMemoryHtml)); } catch { }
+        }
         async void RenderMemoryHtml()
         {
             try
@@ -1835,6 +1839,7 @@ namespace AhzScribe.Face
                 foreach (MemoryItem m in items)
                     _memory.RememberAsync(m, CancellationToken.None).GetAwaiter().GetResult();
                 RenderMemory();
+                RefreshMemoryHtml();
                 AppendChat("Ahz", "提取完成：" + items.Count + " 条，source=" + source, "chat");
             }
             catch (Exception ex) { AppendChat("Ahz", "提取失败：" + ex.Message, "chat"); }
@@ -1962,6 +1967,7 @@ namespace AhzScribe.Face
                 _memory.RememberAsync(new MemoryItem { Kind = "intent", Key = oi.Id, Value = body, Summary = "intent", DueAt = dueAt }, CancellationToken.None).GetAwaiter().GetResult();
                 AppendChat("Ahz", "已记下意图：" + body + (dueAt.Length == 0 ? "" : "（到期 " + dueAt + "）") + "\n下次脉冲会检查（安静时段 23:00–08:00 不提醒）", "chat");
                 RenderMemory();
+                RefreshMemoryHtml();
                 return;
             }
             if (text == "/pulse")
@@ -2061,6 +2067,7 @@ namespace AhzScribe.Face
                 _memory.RememberAsync(new MemoryItem { Kind = p[1], Key = p[2], Value = p[3], Summary = p[2] + "=" + p[3], SourceAuditId = sa }, CancellationToken.None).GetAwaiter().GetResult();
                 AppendChat("Ahz", "已记住 " + p[2] + " = " + p[3], "chat");
                 RenderMemory();
+                RefreshMemoryHtml();
                 if (_tabs.SelectedIndex == 2) RenderMemoryHtml();
                 return;
             }
