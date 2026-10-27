@@ -16,6 +16,32 @@ using AhzScribe.Contracts;
 
 namespace AhzScribe.Face
 {
+    public sealed class StateLabel : Control
+    {
+        public StateLabel()
+        {
+            Dock = DockStyle.Top;
+            Height = 42;
+            BackColor = Theme.BgSecondary;
+            SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
+        }
+        protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Invalidate(); }
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            string text = Text ?? "";
+            int nl = text.IndexOf('\n');
+            string title = nl >= 0 ? text.Substring(0, nl) : text;
+            string value = nl >= 0 ? text.Substring(nl + 1) : "";
+            using (var tf = new Font("Microsoft YaHei UI", 8.5f))
+            using (var vf = new Font("Microsoft YaHei UI", 10.5f))
+            {
+                TextRenderer.DrawText(e.Graphics, title, tf, new Rectangle(10, 2, Width - 20, 16), Theme.TextSecondary, TextFormatFlags.EndEllipsis);
+                TextRenderer.DrawText(e.Graphics, value, vf, new Rectangle(10, 19, Width - 20, 20), Theme.TextPrimary, TextFormatFlags.EndEllipsis);
+            }
+            using (var pen = new Pen(Theme.BorderSubtle, 1)) e.Graphics.DrawLine(pen, 0, Height - 1, Width, Height - 1);
+        }
+    }
     [System.Runtime.InteropServices.ComVisible(true)]
     public sealed class PulseRow
     {
@@ -246,7 +272,7 @@ namespace AhzScribe.Face
         readonly Panel _htmlHost;
         Panel _webErrorPanel; Label _webErrorLabel; ListBox _webSnapshot; Button _webRetry; int _webFailures; bool _webPermanent; DateTime _lastWebBusRefresh;
         string _auditFocus;
-        readonly Label _stateFocus, _stateIntents, _stateBody, _statePulse, _stateMood;
+        readonly StateLabel _stateFocus, _stateIntents, _stateBody, _statePulse, _stateMood;
         Panel _hintPanel;
         Icon _trayIcon;
         readonly System.Windows.Forms.Timer _breathTimer;
@@ -1463,16 +1489,9 @@ namespace AhzScribe.Face
             p.Controls.Add(l);
             return p;
         }
-        static Label MakeStateLabel()
+        static StateLabel MakeStateLabel()
         {
-            var l = new Label();
-            l.Dock = DockStyle.Top;
-            l.Height = 38;
-            l.ForeColor = Theme.TextPrimary;
-            l.Font = new Font("Microsoft YaHei UI", 9f);
-            l.AutoEllipsis = true;
-            l.Paint += delegate(object s, PaintEventArgs e) { using (var pen = new Pen(Theme.BorderSubtle, 1)) e.Graphics.DrawLine(pen, 0, l.Height - 1, l.Width, l.Height - 1); };
-            return l;
+            return new StateLabel();
         }
         void StartBreath()
         {
