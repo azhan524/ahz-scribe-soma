@@ -1188,6 +1188,7 @@ namespace AhzScribe.Face
             if (!AllowProactive()) { FaceAudit.Append(_dataDir, "proactive", "message", "blocked", "", "policy"); return; }
             if (!string.IsNullOrEmpty(evt.IntentId)) FaceSession.CloseIntent(_sessionPath, evt.IntentId, "done");
             AppendChat("Ahz", evt.Summary ?? "提醒", "chat");
+            try { if (_tray != null && !Visible) { string text = evt.Summary ?? ""; if (text.Length > 50) text = text.Substring(0, 50); _tray.ShowBalloonTip(2000, "Ahz Scribe", text, ToolTipIcon.None); } } catch { }
             if (_tabs.SelectedIndex == 1 && _htmlHost.Visible) RenderPulse();
         }
         void JumpTo(FaceMessage m)
@@ -1566,6 +1567,7 @@ namespace AhzScribe.Face
                 Directory.CreateDirectory(dir);
                 File.WriteAllText(Path.Combine(dir, "EMERGENCY_STOP"), DateTime.Now.ToString("o"), new UTF8Encoding(false));
                 AppendChat("Ahz", "已急停，所有脉冲停止", "error");
+                try { if (_tray != null) _tray.ShowBalloonTip(2000, "Ahz Scribe", "已急停，所有脉冲停止", ToolTipIcon.Warning); } catch { }
                 if (_topDot != null) _topDot.ForeColor = Theme.DangerButtonBg;
             }
             catch (Exception ex) { AppendChat("Ahz", "急停失败：" + ex.Message, "error"); }
@@ -1881,6 +1883,7 @@ namespace AhzScribe.Face
                 taskStarted = true;
                 _host.Approval = delegate(BrainToolCall call, CancellationToken ct)
                 {
+                    try { if (_tray != null && !Visible) _tray.ShowBalloonTip(2000, "待确认", "请求 " + (call.Tool ?? "") + "：" + Cut(DescribeArgs(call), 40), ToolTipIcon.Warning); } catch { }
                     using (var dlg = new ApprovalForm("工具审批：" + (call.Tool ?? ""), DescribeArgs(call)))
                         return Task.FromResult(dlg.ShowDialog(this) == DialogResult.Yes);
                 };
