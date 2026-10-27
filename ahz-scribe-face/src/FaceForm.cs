@@ -1147,6 +1147,7 @@ namespace AhzScribe.Face
             if (!AllowProactive()) { FaceAudit.Append(_dataDir, "proactive", "message", "blocked", "", "policy"); return; }
             if (!string.IsNullOrEmpty(evt.IntentId)) FaceSession.CloseIntent(_sessionPath, evt.IntentId, "done");
             AppendChat("Ahz", evt.Summary ?? "提醒", "chat");
+            if (_tabs.SelectedIndex == 1 && _htmlHost.Visible) RenderPulse();
         }
         void JumpTo(FaceMessage m)
         {
@@ -1811,6 +1812,7 @@ namespace AhzScribe.Face
                 _memory.RememberAsync(new MemoryItem { Kind = p[1], Key = p[2], Value = p[3], Summary = p[2] + "=" + p[3], SourceAuditId = sa }, CancellationToken.None).GetAwaiter().GetResult();
                 AppendChat("Ahz", "已记住 " + p[2] + " = " + p[3], "chat");
                 RenderMemory();
+                if (_tabs.SelectedIndex == 2) RenderMemoryHtml();
                 return;
             }
             if (text.StartsWith("/memory ", StringComparison.Ordinal))
