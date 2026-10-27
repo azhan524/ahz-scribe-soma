@@ -812,9 +812,9 @@ namespace AhzScribe.Face
             var pad = new Panel();
             pad.Dock = DockStyle.Fill;
             pad.Padding = new Padding(10, 20, 8, 4);
+            pad.Controls.Add(_send);
             pad.Controls.Add(_input);
             bottom.Controls.Add(pad);
-            bottom.Controls.Add(_send);
             var stopBtn = new Button();
             stopBtn.Text = "■ 急停";
             stopBtn.Dock = DockStyle.Right;
@@ -842,7 +842,6 @@ namespace AhzScribe.Face
             var hintClose = new Button(); hintClose.Text = "知道了"; hintClose.Dock = DockStyle.Right; hintClose.Width = 84; hintClose.FlatStyle = FlatStyle.Flat; hintClose.FlatAppearance.BorderSize = 0; hintClose.BackColor = Theme.BgTertiary; hintClose.ForeColor = Theme.TextPrimary; hintClose.Click += delegate { _hintPanel.Visible = false; };
             _hintPanel.Controls.Add(hint); _hintPanel.Controls.Add(hintClose);
             bottom.Controls.Add(_hintPanel);
-            bottom.Controls.Add(stopBtn);
             var pauseBtn = new Button();
             pauseBtn.Text = "⏸";
             pauseBtn.Dock = DockStyle.Right;
@@ -860,6 +859,15 @@ namespace AhzScribe.Face
             bottom.Controls.Add(auditBtn);
 
 
+            var topStop = new Button();
+            topStop.Text = "■";
+            topStop.Dock = DockStyle.Right;
+            topStop.Width = 38;
+            topStop.FlatStyle = FlatStyle.Flat;
+            topStop.FlatAppearance.BorderSize = 0;
+            topStop.BackColor = Theme.StateDanger;
+            topStop.ForeColor = Theme.DangerButtonFg;
+            topStop.Click += delegate { EmergencyStop(); };
             var top = new Panel();
             top.Dock = DockStyle.Top;
             top.Height = 32;
@@ -870,7 +878,7 @@ namespace AhzScribe.Face
             _topFore = new Label(); _topFore.Dock = DockStyle.Left; _topFore.Width = 300; _topFore.TextAlign = ContentAlignment.MiddleLeft; _topFore.ForeColor = Theme.TextPrimary; _topFore.Font = new Font("Microsoft YaHei UI", 9f);
             _topDisk = new Label(); _topDisk.Dock = DockStyle.Left; _topDisk.Width = 150; _topDisk.TextAlign = ContentAlignment.MiddleRight; _topDisk.ForeColor = Theme.TextPrimary; _topDisk.Font = new Font("Consolas", 9f);
             _topClock = new Label(); _topClock.Dock = DockStyle.Left; _topClock.Width = 90; _topClock.TextAlign = ContentAlignment.MiddleRight; _topClock.ForeColor = Theme.TextPrimary; _topClock.Font = new Font("Consolas", 9f);
-            top.Controls.Add(_topClock); top.Controls.Add(_topDisk); top.Controls.Add(_topFore); top.Controls.Add(_topIdle); top.Controls.Add(_topDot);
+            top.Controls.Add(_topClock); top.Controls.Add(_topDisk); top.Controls.Add(_topFore); top.Controls.Add(_topIdle); top.Controls.Add(_topDot); top.Controls.Add(topStop); topStop.BringToFront();
 
             var main = new Panel();
             main.Dock = DockStyle.Fill;
