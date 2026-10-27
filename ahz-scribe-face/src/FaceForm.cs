@@ -41,30 +41,32 @@ namespace AhzScribe.Face
 
         public string QueryMemories(string filter)
         {
-            string dir = Path.Combine(_dataDir, "..");
-            string sem = Path.Combine(_dataDir, "memory.jsonl");
             var rows = new List<object>();
-            if (!File.Exists(sem)) return "[]";
-            foreach (string line in File.ReadLines(sem).Reverse().Take(300).Reverse())
+            foreach (string name in new[] { "semantic.jsonl", "episodic.jsonl", "memory.jsonl" })
             {
-                if (!string.IsNullOrEmpty(filter) && line.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
-                try
+                string file = Path.Combine(_dataDir, name);
+                if (!File.Exists(file)) continue;
+                foreach (string line in File.ReadLines(file).Reverse().Take(200).Reverse())
                 {
-                    using (var doc = System.Text.Json.JsonDocument.Parse(line))
+                    if (!string.IsNullOrEmpty(filter) && line.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    try
                     {
-                        var r = doc.RootElement;
-                        rows.Add(new
+                        using (var doc = System.Text.Json.JsonDocument.Parse(line))
                         {
-                            kind = r.TryGetProperty("Kind", out var k) ? k.GetString() : "",
-                            key = r.TryGetProperty("Key", out var key) ? key.GetString() : "",
-                            value = r.TryGetProperty("Value", out var v) ? v.GetString() : "",
-                            status = r.TryGetProperty("Status", out var st) ? st.GetString() : "",
-                            audit = r.TryGetProperty("SourceAuditId", out var a) ? a.GetString() : "",
-                            raw = line
-                        });
+                            var r = doc.RootElement;
+                            rows.Add(new
+                            {
+                                kind = r.TryGetProperty("Kind", out var k) ? k.GetString() : name.Replace(".jsonl", ""),
+                                key = r.TryGetProperty("Key", out var key) ? key.GetString() : "",
+                                value = r.TryGetProperty("Value", out var v) ? v.GetString() : "",
+                                status = r.TryGetProperty("Status", out var st) ? st.GetString() : "",
+                                audit = r.TryGetProperty("SourceAuditId", out var a) ? a.GetString() : "",
+                                raw = line
+                            });
+                        }
                     }
+                    catch { }
                 }
-                catch { }
             }
             return System.Text.Json.JsonSerializer.Serialize(rows);
         }
