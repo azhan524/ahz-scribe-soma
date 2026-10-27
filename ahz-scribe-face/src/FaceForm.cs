@@ -70,6 +70,36 @@ namespace AhzScribe.Face
             }
             return System.Text.Json.JsonSerializer.Serialize(rows);
         }
+        public string QueryFallbackAudit(string filter)
+        {
+            string path = FaceAudit.FallbackPath();
+            var rows = new List<object>();
+            if (!File.Exists(path)) return "[]";
+            foreach (string line in File.ReadLines(path).Reverse().Take(100).Reverse())
+            {
+                if (!string.IsNullOrEmpty(filter) && line.IndexOf(filter, StringComparison.OrdinalIgnoreCase) < 0) continue;
+                try
+                {
+                    using (var doc = System.Text.Json.JsonDocument.Parse(line))
+                    {
+                        var r = doc.RootElement;
+                        rows.Add(new
+                        {
+                            ts = r.TryGetProperty("ts", out var ts) ? ts.GetString() : "",
+                            span = r.TryGetProperty("span", out var sp) ? sp.GetString() : "",
+                            tool = r.TryGetProperty("tool", out var tl) ? tl.GetString() : "",
+                            decision = r.TryGetProperty("decision", out var dc) ? dc.GetString() : "",
+                            result = r.TryGetProperty("result", out var rs) ? rs.GetString() : "",
+                            auditId = r.TryGetProperty("audit_id", out var ai) ? ai.GetString() : "",
+                            fallback = true,
+                            raw = line
+                        });
+                    }
+                }
+                catch { }
+            }
+            return System.Text.Json.JsonSerializer.Serialize(rows);
+        }
         public string QueryAudit(string filter)
         {
             string path = Environment.GetEnvironmentVariable("AHZ_AUDIT_PATH");
@@ -1340,7 +1370,7 @@ namespace AhzScribe.Face
                 sb.Append("<script>const KEY='ahzscribe.ui.audit';let rows=[];function esc(s){return String(s==null?'':s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));}");
                 sb.Append("const focus=").Append(System.Text.Json.JsonSerializer.Serialize(_auditFocus ?? "")).Append(";");
                 sb.Append("let mode='all';function render(){let q=(document.getElementById('q').value||'').toLowerCase();let list=document.getElementById('list');list.innerHTML='';let n=0;rows.forEach(function(r){if(mode!='all'&&r.kind!==mode)return;if(q&&(r.raw||'').toLowerCase().indexOf(q)<0)return;n++;let cls=r.decision==='blocked'?'row blocked':'';let fb=r.fallback?' <span class=\"warn\">[备用]</span>':'';let d=document.createElement('div');d.className=cls;d.innerHTML='<table><tr><td>'+esc(r.ts)+'</td><td>'+esc(r.span)+'</td><td>'+esc(r.tool)+'</td><td class=\"'+(r.decision==='blocked'?'danger':(r.decision==='allowed'?'ok':'')) +'\">'+esc(r.decision)+fb+'</td><td>'+esc(r.result)+'</td></tr></table>';list.appendChild(d);});if(n===0)list.innerHTML='<div class=\"empty\">没有匹配的审计</div>';document.getElementById('cnt').textContent=n+' 条';}");
-                sb.Append("async function load(){try{rows=JSON.parse(await chrome.webview.hostObjects.host.QueryAudit(''));let saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}document.getElementById('q').value=saved.q||'';render();if(saved.scroll)setTimeout(()=>document.getElementById('list').scrollTop=saved.scroll,50);}catch(e){document.getElementById('list').innerHTML='<div class=\"empty\">'+esc(e)+'</div>';}}");
+                sb.Append("async function load(){try{let a=JSON.parse(await chrome.webview.hostObjects.host.QueryAudit(''));let b=[];try{b=JSON.parse(await chrome.webview.hostObjects.host.QueryFallbackAudit(''));}catch(e){}rows=a.concat(b);let saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}document.getElementById('q').value=saved.q||'';render();if(saved.scroll)setTimeout(()=>document.getElementById('list').scrollTop=saved.scroll,50);}catch(e){document.getElementById('list').innerHTML='<div class=\"empty\">'+esc(e)+'</div>';}}");
                 sb.Append("if(focus){let el=document.querySelector('[data-audit=\"'+focus+'\"]');if(el){el.scrollIntoView({block:'center'});el.style.background='var(--bg3)';}}");
                 sb.Append("document.getElementById('q').addEventListener('input',function(){render();try{localStorage.setItem(KEY,JSON.stringify({q:this.value,scroll:document.getElementById('list').scrollTop}));}catch(e){}});load();");
                 sb.Append("</script></body></html>");
