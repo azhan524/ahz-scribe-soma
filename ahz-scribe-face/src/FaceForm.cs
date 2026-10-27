@@ -28,6 +28,11 @@ namespace AhzScribe.Face
         public string stateRestore { get; set; }
         public string stateWriteback { get; set; }
         public string auditId { get; set; }
+        public string pulseId { get; set; }
+        public string ts { get; set; }
+        public string confidence { get; set; }
+        public string toolCalls { get; set; }
+        public string memories { get; set; }
     }
 
     [System.Runtime.InteropServices.ComVisible(true)]
@@ -163,16 +168,22 @@ namespace AhzScribe.Face
                         using (var doc = System.Text.Json.JsonDocument.Parse(line))
                         {
                             var r = doc.RootElement;
+                            string ts = r.TryGetProperty("ts", out var ts0) ? ts0.GetString() : "";
                             jr.Add(new PulseRow
                             {
-                                time = r.TryGetProperty("time", out var t) ? t.GetString() : "",
-                                triggerType = r.TryGetProperty("triggerType", out var tt) ? tt.GetString() : "",
+                                time = ts.Length >= 19 ? ts.Substring(11, 8) : (r.TryGetProperty("time", out var t) ? t.GetString() : ""),
+                                ts = ts,
+                                triggerType = r.TryGetProperty("trigger_type", out var tt) ? tt.GetString() : (r.TryGetProperty("triggerType", out var tt2) ? tt2.GetString() : ""),
                                 action = r.TryGetProperty("action", out var a) ? a.GetString() : "",
                                 reason = r.TryGetProperty("reason", out var re) ? re.GetString() : "",
                                 thought = r.TryGetProperty("thought", out var th) ? th.GetString() : "",
-                                stateRestore = r.TryGetProperty("stateRestore", out var sr) ? sr.GetString() : "",
-                                stateWriteback = r.TryGetProperty("stateWriteback", out var sw) ? sw.GetString() : "",
-                                auditId = r.TryGetProperty("auditId", out var ai) ? ai.GetString() : "",
+                                stateRestore = r.TryGetProperty("state_restore", out var sr) ? sr.GetRawText() : (r.TryGetProperty("stateRestore", out var sr2) ? sr2.GetString() : ""),
+                                stateWriteback = r.TryGetProperty("state_writeback", out var sw) ? sw.GetRawText() : (r.TryGetProperty("stateWriteback", out var sw2) ? sw2.GetString() : ""),
+                                auditId = r.TryGetProperty("audit_id", out var ai) ? ai.GetString() : (r.TryGetProperty("auditId", out var ai2) ? ai2.GetString() : ""),
+                                pulseId = r.TryGetProperty("pulse_id", out var pi) ? pi.GetString() : "",
+                                confidence = r.TryGetProperty("confidence", out var cf) && cf.ValueKind != System.Text.Json.JsonValueKind.Null ? cf.ToString() : "",
+                                toolCalls = r.TryGetProperty("tool_calls", out var tc) ? tc.GetRawText() : "[]",
+                                memories = r.TryGetProperty("memories_injected", out var mi) ? mi.GetRawText() : "[]",
                                 raw = line
                             });
                         }
@@ -1109,19 +1120,37 @@ namespace AhzScribe.Face
             try
             {
                 if (d == null) return;
-                var rec = new
+                var restore = new Dictionary<string, object>
                 {
-                    time = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"),
-                    triggerType = type,
-                    action = d.Action ?? "none",
-                    reason = d.Reason ?? "",
-                    summary = d.Text ?? "",
-                    thought = d.Thought ?? "",
-                    stateRestore = "focus=" + (st == null ? "" : st.CurrentFocus) + "; idle=" + (_sensor == null ? 0 : _sensor.Snapshot().IdleSeconds),
-                    stateWriteback = "last_pulse_result=" + (d.Action ?? "none"),
-                    auditId = ""
+                    ["idle_seconds"] = _sensor == null ? 0 : _sensor.Snapshot().IdleSeconds,
+                    ["current_focus"] = st == null ? "" : st.CurrentFocus,
+                    ["open_intents"] = st == null || st.OpenIntents == null ? new List<object>() : st.OpenIntents.Where(x => x.Status == "open" || x.Status == "monitoring").Select(x => (object)new { id = x.Id, condition = x.Text, status = x.Status }).ToList(),
+                    ["active_task"] = st == null ? "" : st.ActiveTask
                 };
-                File.AppendAllText(Path.Combine(_dataDir, "pulse.jsonl"), JsonSerializer.Serialize(rec) + Environment.NewLine, new UTF8Encoding(false));
+                var writeback = new Dictionary<string, object>
+                {
+                    ["last_pulse_result"] = d.Action ?? "none",
+                    ["mood"] = st == null ? "平静" : (string.IsNullOrEmpty(st.ActiveTask) ? "平静" : "专注")
+                };
+                string action = string.IsNullOrEmpty(d.Action) ? "none" : d.Action;
+                string summary = d.Text == null ? "" : d.Text;
+                if (summary.Length > 60) summary = summary.Substring(0, 60);
+                var rec = new Dictionary<string, object>
+                {
+                    ["pulse_id"] = "pulse_" + DateTime.Now.ToString("yyyyMMdd_HHmmss_fff"),
+                    ["ts"] = DateTimeOffset.Now.ToString("o"),
+                    ["trigger_type"] = type,
+                    ["action"] = action,
+                    ["summary_line"] = summary.Length == 0 ? action : summary,
+                    ["audit_id"] = "",
+                    ["state_restore"] = restore,
+                    ["thought"] = d.Thought ?? "",
+                    ["reason"] = d.Reason ?? "",
+                    ["confidence"] = null,
+                    ["tool_calls"] = new List<object>(),
+                    ["state_writeback"] = writeback,
+                    ["memories_injected"] = new List<string>()
+                };                File.AppendAllText(Path.Combine(_dataDir, "pulse.jsonl"), JsonSerializer.Serialize(rec) + Environment.NewLine, new UTF8Encoding(false));
             }
             catch { }
         }
@@ -1507,7 +1536,7 @@ namespace AhzScribe.Face
                 sb.Append("</style></head><body><header><span>脉冲</span><input id='q' placeholder='搜索 thought / reason / 工具'><span id='cnt'></span></header><div id='list'><div class='empty'>加载中…</div></div>");
                 sb.Append("<script>");
                 sb.Append("const KEY='ahzscribe.ui.pulse';let rows=[];function esc(s){return String(s==null?'':s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));}");
-                sb.Append("let mode='all';function render(){let q=(document.getElementById('q').value||'').toLowerCase();let list=document.getElementById('list');list.innerHTML='';let n=0;rows.forEach(function(r){if(mode!='all'&&r.kind!==mode)return;if(q&&(r.raw||'').toLowerCase().indexOf(q)<0)return;n++;let color=r.action==='none'?'var(--weak)':(r.action==='memory'?'var(--success)':'var(--text)');let d=document.createElement('details');d.className='row';d.innerHTML='<summary><span class=\"t\">'+esc(r.time)+'</span><span class=\"src\">'+esc(r.triggerType)+'</span><span class=\"act\" style=\"color:'+color+'\">'+esc(r.action)+'</span><span class=\"why\">'+esc(r.reason)+'</span><span class=\"chev\">▸</span></summary><pre class=\"detail\"><span class=\"lbl\">state_restore</span>'+esc(r.stateRestore||r.raw)+'\n<span class=\"lbl\">thought</span>'+esc(r.thought||'（未记录）')+'\n<span class=\"lbl\">action</span>'+esc(r.action)+' / '+esc(r.reason)+'\n<span class=\"lbl\">state_writeback</span>'+esc(r.stateWriteback||'（未记录）')</pre>';list.appendChild(d);});if(n===0)list.innerHTML='<div class=\"empty\">没有匹配的脉冲</div>';document.getElementById('cnt').textContent=n+' 条';}");
+                sb.Append("let mode='all';function render(){let q=(document.getElementById('q').value||'').toLowerCase();let list=document.getElementById('list');list.innerHTML='';let n=0;rows.forEach(function(r){if(mode!='all'&&r.kind!==mode)return;if(q&&(r.raw||'').toLowerCase().indexOf(q)<0)return;n++;let color=r.action==='none'?'var(--weak)':(r.action==='memory'?'var(--success)':'var(--text)');let d=document.createElement('details');d.className='row';d.innerHTML='<summary><span class=\"t\">'+esc(r.time)+'</span><span class=\"src\">'+esc(r.triggerType)+'</span><span class=\"act\" style=\"color:'+color+'\">'+esc(r.action)+'</span><span class=\"why\">'+esc(r.reason)+'</span><span class=\"chev\">▸</span></summary><pre class=\"detail\"><span class=\"lbl\">state_restore</span>'+esc(r.stateRestore||r.raw)+'\n<span class=\"lbl\">thought</span>'+esc(r.thought||'（未记录）')+'\n<span class=\"lbl\">action</span>'+esc(r.action)+' / '+esc(r.reason)+'\n<span class=\"lbl\">state_writeback</span>'+esc(r.stateWriteback||'（未记录）')\n<span class=\"lbl\">confidence</span>'+esc(r.confidence||'—')\n<span class=\"lbl\">pulse_id</span>'+esc(r.pulseId||'—')\n<span class=\"lbl\">tool_calls</span>'+esc(r.toolCalls||'[]')\n<span class=\"lbl\">memories</span>'+esc(r.memories||'[]')</pre>';list.appendChild(d);});if(n===0)list.innerHTML='<div class=\"empty\">没有匹配的脉冲</div>';document.getElementById('cnt').textContent=n+' 条';}");
                 sb.Append("async function load(){try{rows=JSON.parse(await chrome.webview.hostObjects.host.QueryPulses(''));let saved={};try{saved=JSON.parse(localStorage.getItem(KEY)||'{}');}catch(e){}document.getElementById('q').value=saved.q||'';render();if(saved.scroll)setTimeout(()=>document.getElementById('list').scrollTop=saved.scroll,50);}catch(e){document.getElementById('list').innerHTML='<div class=\"err\">'+esc(e)+'</div>';}}");
                 sb.Append("document.getElementById('q').addEventListener('input',function(){render();try{localStorage.setItem(KEY,JSON.stringify({q:this.value,scroll:document.getElementById('list').scrollTop}));}catch(e){}});document.getElementById('list').addEventListener('scroll',function(){try{localStorage.setItem(KEY,JSON.stringify({q:document.getElementById('q').value,scroll:this.scrollTop}));}catch(e){}},{passive:true});load();");
                 sb.Append("</script></body></html>");
