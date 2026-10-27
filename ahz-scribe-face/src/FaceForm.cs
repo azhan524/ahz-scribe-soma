@@ -352,12 +352,13 @@ namespace AhzScribe.Face
             _output = new RichTextBox();
             _output.Multiline = true;
             _output.ReadOnly = true;
-            _output.ScrollBars = RichTextBoxScrollBars.Vertical;
+            _output.ScrollBars = RichTextBoxScrollBars.None;
             _output.Dock = DockStyle.Fill;
             _output.BackColor = Theme.BgPrimary;
             _output.ForeColor = Theme.TextPrimary;
             _output.BorderStyle = BorderStyle.None;
-            _output.Font = new Font("Consolas", 10f);
+            _output.Font = new Font("Microsoft YaHei UI", 10f);
+            _output.HideSelection = false;
 
             _trace = new TextBox();
             _trace.Multiline = true;
@@ -752,16 +753,16 @@ namespace AhzScribe.Face
             _input.Dock = DockStyle.Fill;
             _input.Multiline = true;
             _input.PlaceholderText = "输入问题；/tool 前缀让模型使用工具";
-            _input.ScrollBars = ScrollBars.Vertical;
+            _input.ScrollBars = ScrollBars.None;
             _input.Font = new Font("Microsoft YaHei UI", 10f);
             _input.BackColor = Theme.BgSecondary;
             _input.ForeColor = Theme.TextPrimary;
-            _input.BorderStyle = BorderStyle.FixedSingle;
+            _input.BorderStyle = BorderStyle.None;
 
             _send = new Button();
-            _send.Text = "发送";
+            _send.Text = "↑ 发送";
             _send.Dock = DockStyle.Right;
-            _send.Width = 88;
+            _send.Width = 68;
             _send.FlatStyle = FlatStyle.Flat;
             _send.FlatAppearance.BorderSize = 0;
             _send.BackColor = Theme.StateInfo;
@@ -791,7 +792,7 @@ namespace AhzScribe.Face
             var stopBtn = new Button();
             stopBtn.Text = "■ 急停";
             stopBtn.Dock = DockStyle.Right;
-            stopBtn.Width = 84;
+            stopBtn.Width = 56;
             stopBtn.FlatStyle = FlatStyle.Flat;
             stopBtn.FlatAppearance.BorderSize = 0;
             stopBtn.BackColor = Theme.StateDanger;
@@ -800,11 +801,11 @@ namespace AhzScribe.Face
             var auditBtn = new Button();
             auditBtn.Text = "审计";
             auditBtn.Dock = DockStyle.Right;
-            auditBtn.Width = 64;
+            auditBtn.Width = 48;
             auditBtn.FlatStyle = FlatStyle.Flat;
             auditBtn.FlatAppearance.BorderSize = 0;
-            auditBtn.BackColor = Theme.BgTertiary;
-            auditBtn.ForeColor = Theme.TextPrimary;
+            auditBtn.BackColor = Theme.BgPrimary;
+            auditBtn.ForeColor = Theme.TextTertiary;
             auditBtn.Click += delegate { _tabs.SelectedIndex = 3; UpdateNav(); };
             _hintPanel = new Panel();
             _hintPanel.Dock = DockStyle.Bottom;
@@ -1046,10 +1047,20 @@ namespace AhzScribe.Face
         void AppendHistory(FaceMessage m)
         {
             string role = m.Role ?? "";
-            _output.SelectionColor = role == "你" ? Theme.StateInfo : Theme.TextPrimary;
-            _output.AppendText(role + "：");
-            _output.SelectionColor = Theme.TextPrimary;
-            _output.AppendText((m.Text ?? "") + Environment.NewLine + Environment.NewLine);
+            if (role == "工具") { _output.SelectionColor = Theme.TextTertiary; _output.SelectionBackColor = Theme.BgPrimary; _output.AppendText((m.Text ?? "") + Environment.NewLine); return; }
+            AppendBubble(role, m.Text ?? "", m.Kind ?? "chat", false);
+        }
+        void AppendBubble(string role, string text, string kind, bool persist)
+        {
+            bool user = role == "你";
+            _output.SelectionAlignment = user ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+            _output.SelectionBackColor = user ? Theme.BgElevated : Theme.BgSecondary;
+            _output.SelectionColor = kind == "error" ? Theme.StateDanger : Theme.TextPrimary;
+            _output.SelectionFont = new Font("Microsoft YaHei UI", 10f, FontStyle.Regular);
+            string label = user ? "你" : (role == "工具" ? "工具" : "Ahz");
+            _output.AppendText("  " + label + "  " + text + "  " + Environment.NewLine + Environment.NewLine);
+            _output.SelectionBackColor = Theme.BgPrimary;
+            _output.SelectionAlignment = HorizontalAlignment.Left;
         }
         void NoteResponse()
         {
@@ -1058,10 +1069,7 @@ namespace AhzScribe.Face
         void AppendChat(string role, string text, string kind)
         {
             FaceSession.Append(_sessionPath, new FaceMessage { Role = role, Text = text, Kind = kind });
-            _output.SelectionColor = role == "你" ? Theme.StateInfo : Theme.TextPrimary;
-            _output.AppendText(role + "：");
-            _output.SelectionColor = Theme.TextPrimary;
-            _output.AppendText((text ?? "") + Environment.NewLine + Environment.NewLine);
+            AppendBubble(role, text ?? "", kind, true);
             _output.SelectionStart = _output.TextLength;
             _output.ScrollToCaret();
             if (role == "Ahz") NoteResponse();
