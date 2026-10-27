@@ -251,7 +251,7 @@ namespace AhzScribe.Face
         readonly TextBox _memoryFilter;
         readonly TextBox _setBase, _setModel, _setWorkspace, _setPipe, _setBodyData;
         readonly CheckBox _setNoProxy;
-        readonly NumericUpDown _setProactiveMax, _setQuietStart, _setQuietEnd, _setPauseHours;
+        readonly NumericUpDown _setProactiveMax, _setQuietStart, _setQuietEnd, _setPauseHours, _setPulseSeconds;
         readonly TabControl _tabs;
         readonly Label _status;
         readonly Panel _side;
@@ -306,7 +306,7 @@ namespace AhzScribe.Face
                 new FacePulseSink(OnPulse), new ModelPulseDecider(_memory, _host.Model));
             _pulseQueue = new PulseQueue();
             _arbiter = new PulseArbiter(_pulse, _pulseQueue, delegate { return FaceSession.LoadState(_sessionPath); });
-            _pulseTimer = new System.Threading.Timer(delegate { PulseTick(); }, null, 60000, 60000);
+            _pulseTimer = new System.Threading.Timer(delegate { PulseTick(); }, null, _settings.PulseSeconds * 1000, _settings.PulseSeconds * 1000);
             _sensor = new BodySensor(_settings.Workspace);
             _bodyTimer = new System.Threading.Timer(delegate { SampleBody(); }, null, 0, 30000);
             _sensor = new BodySensor(_settings.Workspace);
@@ -448,6 +448,7 @@ namespace AhzScribe.Face
             _setQuietStart = MakeNumber(0, 23, _settings.QuietStartHour);
             _setQuietEnd = MakeNumber(0, 23, _settings.QuietEndHour);
             _setPauseHours = MakeNumber(1, 168, _settings.UnansweredPauseHours);
+            _setPulseSeconds = MakeNumber(10, 600, _settings.PulseSeconds);
 
             _tabs = new TabControl();
             _tabs.Dock = DockStyle.Fill;
@@ -568,7 +569,10 @@ namespace AhzScribe.Face
             settingsFlow.Controls.Add(safetyGroup);
             settingsFlow.Controls.Add(MakeInfoGroup("权限", "工具分级：ReadOnly / WorkspaceWrite / Full\\nFull 操作逐次审批，审计写入 ProgramData"));
             settingsFlow.Controls.Add(MakeInfoGroup("记忆", "语义 / 情节 / disputed 三类记忆\\n24 小时去重，冲突标记 disputed"));
-            settingsFlow.Controls.Add(MakeInfoGroup("脉冲", "周期 60 秒\\n优先级：user_message > intent_due > body_event > drive > timer"));
+            var pulseGroup = MakeGroup("脉冲");
+            pulseGroup.Height = 80;
+            pulseGroup.Controls.Add(MakeSettingRow("周期（秒）", _setPulseSeconds));
+            settingsFlow.Controls.Add(pulseGroup);
             var proactiveGroup = MakeGroup("主动性");
             proactiveGroup.Height = 180;
             proactiveGroup.Controls.Add(MakeSettingRow("每日上限", _setProactiveMax));
@@ -1613,6 +1617,7 @@ namespace AhzScribe.Face
             _settings.QuietStartHour = (int)_setQuietStart.Value;
             _settings.QuietEndHour = (int)_setQuietEnd.Value;
             _settings.UnansweredPauseHours = (int)_setPauseHours.Value;
+            _settings.PulseSeconds = (int)_setPulseSeconds.Value;
             if (_setNoProxy.Checked) Environment.SetEnvironmentVariable("AHZ_MODEL_NOPROXY", "1");
             else Environment.SetEnvironmentVariable("AHZ_MODEL_NOPROXY", "");
             _settings.Save(_dataDir);
@@ -1647,7 +1652,7 @@ namespace AhzScribe.Face
             if (text == "/resume")
             {
                 try { File.Delete(StopPath()); } catch { }
-                _pulseTimer.Change(60000, 60000);
+                _pulseTimer.Change(_settings.PulseSeconds * 1000, _settings.PulseSeconds * 1000);
                 AppendChat("Ahz", "已恢复脉冲。", "chat");
                 return;
             }

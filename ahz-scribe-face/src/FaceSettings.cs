@@ -17,6 +17,7 @@ namespace AhzScribe.Face
         public int QuietStartHour { get; set; } = 23;
         public int QuietEndHour { get; set; } = 8;
         public int UnansweredPauseHours { get; set; } = 24;
+        public int PulseSeconds { get; set; } = 60;
 
         public static FaceSettings Load(string dataDir)
         {
