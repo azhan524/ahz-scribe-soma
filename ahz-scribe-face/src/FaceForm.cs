@@ -430,6 +430,16 @@ namespace AhzScribe.Face
                     _pulseView.Visible = true;
                     _pulseView.Text = "HTML 面板不可用，已切换为只读文本模式。\n" + e.InitializationException;
                 }
+                else
+                {
+                    _web.CoreWebView2.ProcessFailed += delegate(object ps, Microsoft.Web.WebView2.Core.CoreWebView2ProcessFailedEventArgs pe)
+                    {
+                        try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), "process_failed=" + pe.ProcessFailedKind + "\n"); } catch { }
+                        _htmlHost.Visible = false;
+                        _pulseView.Visible = true;
+                        _pulseView.Text = "HTML 面板进程异常，已切换为只读文本模式。\n" + pe.ProcessFailedKind;
+                    };
+                }
             };
             _web.NavigationCompleted += delegate(object s, Microsoft.Web.WebView2.Core.CoreWebView2NavigationCompletedEventArgs e) { try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), "nav success=" + e.IsSuccess + " " + e.WebErrorStatus + "\n"); } catch { } };
             _taskView = new TextBox();
