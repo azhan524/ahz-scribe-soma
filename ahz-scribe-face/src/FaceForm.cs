@@ -1795,7 +1795,7 @@ namespace AhzScribe.Face
                 if (InvokeRequired) { BeginInvoke(new Action(UpdateStatus)); return; }
                 FaceState st = FaceSession.LoadState(_sessionPath);
                 BodyStatus b = _sensor == null ? new BodyStatus() : _sensor.Snapshot();
-                _uiBus.Publish(new UiSnapshot { State = st, Body = b });
+                _uiBus.Publish(new UiSnapshot { State = st, Body = b, Memories = _memory.LoadAllAsync(CancellationToken.None).GetAwaiter().GetResult() });
             }
             catch { }
         }
