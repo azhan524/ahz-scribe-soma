@@ -1311,12 +1311,13 @@ namespace AhzScribe.Face
         {
             try
             {
-                using (var bmp = new Bitmap(16, 16))
+                int size = DeviceDpi >= 192 ? 48 : (DeviceDpi >= 144 ? 32 : 16);
+                using (var bmp = new Bitmap(size, size))
                 using (Graphics g = Graphics.FromImage(bmp))
                 {
                     g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                     g.Clear(Color.Transparent);
-                    using (Brush b = new SolidBrush(color)) g.FillEllipse(b, 3, 3, 10, 10);
+                    using (Brush b = new SolidBrush(color)) g.FillEllipse(b, size / 5, size / 5, size * 3 / 5, size * 3 / 5);
                     IntPtr h = bmp.GetHicon();
                     Icon next = Icon.FromHandle(h);
                     Icon old = _trayIcon;
