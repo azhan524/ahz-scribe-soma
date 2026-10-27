@@ -194,6 +194,7 @@ namespace AhzScribe.Body
                     case "desktop_scroll_loop": result.Output = DesktopScrollLoop(request); break;
                     case "desktop_scroll_stop": result.Output = DesktopScrollStop(); break;
                     case "desktop_screenshot": result.Output = DesktopScreenshot(); break;
+                    case "desktop_screen_info": Rectangle vs = SystemInformation.VirtualScreen; result.Output = vs.Left + "," + vs.Top + "," + vs.Width + "," + vs.Height; break;
                     case "desktop_ocr": result.Output = DesktopOcr(request); break;
                     case "desktop_focus_window": result.Output = DesktopFocus(request); break;
                     case "desktop_window_state": result.Output = DesktopWindowState(request); break;
@@ -430,7 +431,7 @@ namespace AhzScribe.Body
                     g.CopyFromScreen(b.Left, b.Top, 0, 0, b.Size, CopyPixelOperation.SourceCopy);
                 bmp.Save(path, ImageFormat.Png);
             }
-            return "_screenshots/" + name + " | origin=" + b.Left + "," + b.Top + " size=" + b.Width + "x" + b.Height;
+            return "_screenshots/" + name;
         }
         [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hWnd);
         [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
