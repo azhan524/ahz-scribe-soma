@@ -244,6 +244,7 @@ namespace AhzScribe.Face
         readonly TextBox _pulseView;
         readonly WebView2 _web;
         readonly Panel _htmlHost;
+        Panel _webErrorPanel; Label _webErrorLabel; Button _webRetry; int _webFailures; bool _webPermanent;
         string _auditFocus;
         readonly Label _stateFocus, _stateIntents, _stateBody, _statePulse, _stateMood;
         Panel _hintPanel;
@@ -254,6 +255,7 @@ namespace AhzScribe.Face
         DateTime _lastBodySample;
         readonly Queue<string> _pendingSends = new Queue<string>();
         readonly TextBox _taskView;
+        ProgressBar _taskProgress;
         readonly Label _topDot, _topIdle, _topFore, _topDisk, _topClock;
         readonly NotifyIcon _tray;
         ToolStripMenuItem _trayStatus, _trayPulse;
@@ -423,23 +425,49 @@ namespace AhzScribe.Face
             _htmlHost.Visible = false;
             _htmlHost.BackColor = Theme.BgPrimary;
             _htmlHost.Controls.Add(_web);
+            _webErrorPanel = new Panel();
+            _webErrorPanel.Dock = DockStyle.Fill;
+            _webErrorPanel.BackColor = Theme.BgPrimary;
+            _webErrorPanel.Visible = false;
+            _webErrorLabel = new Label();
+            _webErrorLabel.Dock = DockStyle.Fill;
+            _webErrorLabel.ForeColor = Theme.StateWarning;
+            _webErrorLabel.Font = new Font("Microsoft YaHei UI", 10f);
+            _webErrorLabel.Padding = new Padding(24);
+            _webErrorLabel.Text = "HTML 面板不可用";
+            _webRetry = new Button();
+            _webRetry.Text = "重试";
+            _webRetry.Dock = DockStyle.Bottom;
+            _webRetry.Height = 36;
+            _webRetry.Enabled = false;
+            _webRetry.FlatStyle = FlatStyle.Flat;
+            _webRetry.FlatAppearance.BorderSize = 0;
+            _webRetry.BackColor = Theme.BgTertiary;
+            _webRetry.ForeColor = Theme.TextPrimary;
+            _webRetry.Click += delegate { if (_webPermanent) return; _webErrorPanel.Visible = false; _htmlHost.Visible = true; try { RenderPulse(); } catch { } };
+            _webErrorPanel.Controls.Add(_webErrorLabel);
+            _webErrorPanel.Controls.Add(_webRetry);
             _web.CoreWebView2InitializationCompleted += delegate(object s, Microsoft.Web.WebView2.Core.CoreWebView2InitializationCompletedEventArgs e)
             {
                 try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), "init success=" + e.IsSuccess + " " + e.InitializationException + "\n"); } catch { }
                 if (!e.IsSuccess)
                 {
-                    _htmlHost.Visible = false;
-                    _pulseView.Visible = true;
-                    _pulseView.Text = "HTML 面板不可用，已切换为只读文本模式。\n" + e.InitializationException;
+                    ShowWebFailure("初始化失败：" + e.InitializationException);
+
+
                 }
                 else
+                    _webFailures = 0;
+                    _webPermanent = false;
+                    _webRetry.Enabled = true;
+                    _webRetry.Text = "重试";
                 {
                     _web.CoreWebView2.ProcessFailed += delegate(object ps, Microsoft.Web.WebView2.Core.CoreWebView2ProcessFailedEventArgs pe)
                     {
                         try { File.AppendAllText(Path.Combine(_dataDir, "webview.log"), "process_failed=" + pe.ProcessFailedKind + "\n"); } catch { }
-                        _htmlHost.Visible = false;
-                        _pulseView.Visible = true;
-                        _pulseView.Text = "HTML 面板进程异常，已切换为只读文本模式。\n" + pe.ProcessFailedKind;
+                        ShowWebFailure("进程异常：" + pe.ProcessFailedKind);
+
+
                     };
                 }
             };
@@ -451,6 +479,12 @@ namespace AhzScribe.Face
             _taskView.BackColor = Theme.BgPrimary;
             _taskView.ForeColor = Theme.TextPrimary;
             _taskView.BorderStyle = BorderStyle.None;
+            _taskProgress = new ProgressBar();
+            _taskProgress.Dock = DockStyle.Top;
+            _taskProgress.Height = 6;
+            _taskProgress.Style = ProgressBarStyle.Marquee;
+            _taskProgress.MarqueeAnimationSpeed = 40;
+            _taskProgress.Visible = false;
             _taskView.Font = new Font("Consolas", 9f);
 
             _memoryFilter = new TextBox();
@@ -615,6 +649,7 @@ namespace AhzScribe.Face
             settingsPage.Controls.Add(settingsFlow);
             var taskPage = new TabPage("任务");
             taskPage.BackColor = Theme.BgPrimary;
+            taskPage.Controls.Add(_taskProgress);
             taskPage.Controls.Add(_taskView);
             _tabs.TabPages.Add(chatPage);
             _tabs.TabPages.Add(pulsePage);
@@ -796,9 +831,9 @@ namespace AhzScribe.Face
             _topDot = new Label(); _topDot.Text = "●"; _topDot.AutoSize = false; _topDot.Width = 22; _topDot.Dock = DockStyle.Left; _topDot.TextAlign = ContentAlignment.MiddleCenter; _topDot.ForeColor = Theme.StateInfo; _topDot.Font = new Font("Segoe UI", 10f);
             _topIdle = new Label(); _topIdle.Dock = DockStyle.Left; _topIdle.Width = 140; _topIdle.TextAlign = ContentAlignment.MiddleLeft; _topIdle.ForeColor = Theme.TextPrimary; _topIdle.Font = new Font("Microsoft YaHei UI", 9f);
             _topFore = new Label(); _topFore.Dock = DockStyle.Left; _topFore.Width = 300; _topFore.TextAlign = ContentAlignment.MiddleLeft; _topFore.ForeColor = Theme.TextPrimary; _topFore.Font = new Font("Microsoft YaHei UI", 9f);
-            _topDisk = new Label(); _topDisk.Dock = DockStyle.Right; _topDisk.Width = 150; _topDisk.TextAlign = ContentAlignment.MiddleRight; _topDisk.ForeColor = Theme.TextPrimary; _topDisk.Font = new Font("Consolas", 9f);
-            _topClock = new Label(); _topClock.Dock = DockStyle.Right; _topClock.Width = 90; _topClock.TextAlign = ContentAlignment.MiddleRight; _topClock.ForeColor = Theme.TextPrimary; _topClock.Font = new Font("Consolas", 9f);
-            top.Controls.Add(_topFore); top.Controls.Add(_topIdle); top.Controls.Add(_topDisk); top.Controls.Add(_topClock); top.Controls.Add(_topDot);
+            _topDisk = new Label(); _topDisk.Dock = DockStyle.Left; _topDisk.Width = 150; _topDisk.TextAlign = ContentAlignment.MiddleRight; _topDisk.ForeColor = Theme.TextPrimary; _topDisk.Font = new Font("Consolas", 9f);
+            _topClock = new Label(); _topClock.Dock = DockStyle.Left; _topClock.Width = 90; _topClock.TextAlign = ContentAlignment.MiddleRight; _topClock.ForeColor = Theme.TextPrimary; _topClock.Font = new Font("Consolas", 9f);
+            top.Controls.Add(_topClock); top.Controls.Add(_topDisk); top.Controls.Add(_topFore); top.Controls.Add(_topIdle); top.Controls.Add(_topDot);
 
             var main = new Panel();
             main.Dock = DockStyle.Fill;
@@ -806,6 +841,7 @@ namespace AhzScribe.Face
             right.Dock = DockStyle.Fill;
             right.Controls.Add(_htmlHost);
             right.Controls.Add(_tabs);
+            right.Controls.Add(_webErrorPanel);
             right.Controls.Add(tabBar);
             right.Padding = new Padding(0, 42, 0, 0);
             tabBar.BringToFront();
@@ -1510,6 +1546,17 @@ namespace AhzScribe.Face
             Rectangle r = _tabs.DisplayRectangle;
             foreach (TabPage p in _tabs.TabPages) p.Bounds = r;
         }
+        void ShowWebFailure(string reason)
+        {
+            _webFailures++;
+            if (_webFailures >= 3) _webPermanent = true;
+            _htmlHost.Visible = false;
+            _webErrorPanel.Visible = true;
+            _webErrorPanel.BringToFront();
+            _webErrorLabel.Text = "HTML 面板不可用\n" + reason + "\n失败次数：" + _webFailures + "/3" + (_webPermanent ? "\n已进入只读模式，重试已禁用。" : "\n点击下方重试。");
+            _webRetry.Enabled = !_webPermanent;
+            _webRetry.Text = _webPermanent ? "只读模式" : "重试";
+        }
         void ShowHtmlTab()
         {
             if (_tabs.SelectedIndex >= 1 && _tabs.SelectedIndex <= 3)
@@ -1706,6 +1753,7 @@ namespace AhzScribe.Face
                 if (st != null && st.OpenIntents != null)
                     foreach (OpenIntent it in st.OpenIntents) ts.AppendLine(it.Status + "  " + it.CreatedAt + "  " + it.Text);
                 _taskView.Text = ts.ToString();
+                if (_taskProgress != null) _taskProgress.Visible = st != null && !string.IsNullOrEmpty(st.ActiveTask);
             }
         }
         void UpdateNav()
